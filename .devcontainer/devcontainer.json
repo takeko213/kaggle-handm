@@ -21,7 +21,8 @@
 		"dongli.python-preview",
 		"shuworks.vscode-table-formatter",
 		"DavidAnson.vscode-markdownlint",
-		"shd101wyy.markdown-preview-enhanced"
+		"shd101wyy.markdown-preview-enhanced",
+		"njpwerner.autodocstring"
 	],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
