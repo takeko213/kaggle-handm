@@ -62,7 +62,8 @@ def recall(df_test_part, hot_items, user_item_dict, worker_id):
                 rank[relate_item] = 1/(loc+1)
 
         # recalculate score tak top 100
-        sim_items = sorted(rank.items(), key=lambda d: d[1], reverse=True)[:100]
+        sim_items = sorted(
+            rank.items(), key=lambda d: d[1], reverse=True)[:100]
         item_ids = [item[0] for item in sim_items]
         item_sim_scores = [item[1] for item in sim_items]
 
@@ -81,6 +82,7 @@ def recall(df_test_part, hot_items, user_item_dict, worker_id):
     df_part_data.to_csv(f'result/hot_tmp/{worker_id}.csv', index=False)
     print(str(worker_id) + 'hot over')
 
+
 def create_reall(df, hot_items_list, user_items_dict):
     # recall by thread
     n_split = max_threads
@@ -98,7 +100,6 @@ def create_reall(df, hot_items_list, user_items_dict):
         df_temp = df[df['customer_id'].isin(part_users)]
         recall(df_temp, hot_items_list, user_items_dict, i)
 
-
     multitasking.wait_for_tasks()
     log.info('merge task')
 
@@ -109,7 +110,8 @@ def create_reall(df, hot_items_list, user_items_dict):
             df_data = df_data.append(df_temp)
 
     # sort
-    df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[True, False]).reset_index(drop=True)
+    df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[
+                                  True, False]).reset_index(drop=True)
 
     # evo recall
     total = df.customer_id.nunique()
@@ -128,13 +130,17 @@ if __name__ == '__main__':
     INPUT_DIR = 'dataset/'
     transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
     transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-    transactions = transactions[(transactions.t_dat >= np.datetime64('2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))]
-    
+    transactions = transactions[(transactions.t_dat >= np.datetime64(
+        '2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))]
+
     # hot top 100
-    hot_items_list = transactions['article_id'].value_counts().keys().to_arrow().to_pylist()[:100]
+    hot_items_list = transactions['article_id'].value_counts(
+    ).keys().to_arrow().to_pylist()[:100]
     transactions = transactions.to_pandas()
-    user_items_df = transactions.groupby('customer_id')['article_id'].apply(list).reset_index()
-    user_items_dict = dict(zip(user_items_df['customer_id'], user_items_df['article_id']))
+    user_items_df = transactions.groupby(
+        'customer_id')['article_id'].apply(list).reset_index()
+    user_items_dict = dict(
+        zip(user_items_df['customer_id'], user_items_df['article_id']))
 
     print('start hot recall')
     create_reall(transactions, hot_items_list, user_items_dict)

@@ -48,11 +48,13 @@ def recall_result_sim(df1_, df2_):
     df1 = df1_.copy()
     df2 = df2_.copy()
 
-    user_item_ = df1.groupby('customer_id')['article_id'].agg(set).reset_index()
+    user_item_ = df1.groupby('customer_id')[
+        'article_id'].agg(set).reset_index()
     user_item_dict1 = dict(zip(user_item_['customer_id'],
                                user_item_['article_id']))
 
-    user_item_ = df2.groupby('customer_id')['article_id'].agg(set).reset_index()
+    user_item_ = df2.groupby('customer_id')[
+        'article_id'].agg(set).reset_index()
     user_item_dict2 = dict(zip(user_item_['customer_id'],
                                user_item_['article_id']))
 
@@ -78,7 +80,8 @@ if __name__ == '__main__':
     INPUT_DIR = 'dataset/'
     transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
     transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-    transactions = transactions[(transactions.t_dat >= np.datetime64('2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))].to_pandas()
+    transactions = transactions[(transactions.t_dat >= np.datetime64(
+        '2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))].to_pandas()
 
     recall_path = 'result'
 
@@ -89,7 +92,8 @@ if __name__ == '__main__':
     recall_list = []
     # recall_dict = {}
     for recall_method in recall_methods:
-        recall_result = pd.read_csv(f'{recall_path}/recall_{recall_method}.csv')
+        recall_result = pd.read_csv(
+            f'{recall_path}/recall_{recall_method}.csv')
         weight = weights[recall_method]
 
         recall_result['sim_score'] = mms(recall_result)
@@ -100,16 +104,17 @@ if __name__ == '__main__':
 
     # merge result
     recall_final = pd.concat(recall_list, sort=False)
-    
+
     recall_score = recall_final[['customer_id', 'article_id', 'sim_score']].groupby(['customer_id', 'article_id'
-                                 ])['sim_score'].sum().reset_index()
+                                                                                     ])['sim_score'].sum().reset_index()
     # drop duplicates
     recall_final = recall_final[['customer_id', 'article_id', 'label'
                                  ]].drop_duplicates(['customer_id', 'article_id'])
     # add label
     recall_final = recall_final.merge(recall_score, how='left')
     # sort with sim score
-    recall_final.sort_values(['customer_id', 'sim_score'], inplace=True, ascending=[True, False])
+    recall_final.sort_values(
+        ['customer_id', 'sim_score'], inplace=True, ascending=[True, False])
     # get recall item top 50
     recall_final = recall_final.groupby('customer_id').head(50)
     log.debug(f'recall_final.shape: {recall_final.shape}')
@@ -125,7 +130,7 @@ if __name__ == '__main__':
 
     df = recall_final['customer_id'].value_counts().reset_index()
     df.columns = ['customer_id', 'cnt']
-    log.debug(f"per user recll number：{df['cnt'].mean()}")
+    log.debug(f"per user recll number: {df['cnt'].mean()}")
 
     log.debug(
         f"label distribute: {recall_final[recall_final['label'].notnull()]['label'].value_counts()}"
