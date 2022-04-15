@@ -30,7 +30,7 @@ def reduce_mem(df):
                 else:
                     df[col] = df[col].astype(np.float64)
     end_mem = df.memory_usage().sum() / 1024**2
-    print('-- Mem. usage decreased to {:5.2f} Mb ({:.1f}% reduction),time spend:{:2.2f} min'.format(end_mem,
-                                                                                                           100*(start_mem-end_mem)/start_mem,
-                                                                                                           (time.time()-starttime)/60))
+    # print('-- Mem. usage decreased to {:5.2f} Mb ({:.1f}% reduction),time spend:{:2.2f} min'.format(end_mem,
+    #                                                                                                        100*(start_mem-end_mem)/start_mem,
+    #                                                                                                        (time.time()-starttime)/60))
     return df

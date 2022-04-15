@@ -10,8 +10,7 @@ import multitasking
 import pandas as pd
 from tqdm import tqdm
 
-from utils_log import Logger
-from utils_evaluate import evaluate
+from utils import Logger, evaluate
 
 max_threads = multitasking.config['CPU_CORES']
 multitasking.set_max_threads(max_threads)

@@ -5,12 +5,10 @@ import joblib
 import lightgbm as lgb
 import pandas as pd
 from sklearn.model_selection import GroupKFold
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
+import pathlib
 import cudf
 import numpy as np
-from utils_log import Logger
-from utils_evaluate import evaluate
+from utils import Logger, evaluate
 
 seed = 42
 random.seed(seed)
@@ -22,7 +20,7 @@ log = Logger(f'log/{log_file}').logger
 log.info('rank lgb')
 
 
-def train_model(df_train_set, label):
+def train_model(df_train_set):
     """
     :param df_train_set
     :return:
@@ -31,6 +29,7 @@ def train_model(df_train_set, label):
     ycol = 'label'
     feature_names = list(
         filter(lambda x: x not in [ycol, 't_dat', 'sales_channel_id','customer_id', 'article_id'], df_train_set.columns))
+
     print(feature_names)
     feature_names.sort()
 
@@ -90,9 +89,9 @@ def train_model(df_train_set, label):
         })
         df_importance_list.append(df_importance)
 
+        pathlib.Path('model').mkdir(parents=True, exist_ok=True)
         joblib.dump(model, f'model/lgb{fold_id}.pkl')
 
-    
     df_importance = pd.concat(df_importance_list)
     df_importance = df_importance.groupby([
         'feature_name'
@@ -115,6 +114,7 @@ def train_model(df_train_set, label):
     log.debug(
         f'{hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
     )
+    df_oof.to_csv('oof.csv')
 
 
 
@@ -191,10 +191,11 @@ if __name__ == '__main__':
     df_train_feature = pd.read_csv('data/rank_train.csv')
     print(len(df_train_feature['customer_id'].unique()))
 
-    INPUT_DIR = 'dataset/'
-    transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
-    transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-    label = transactions[transactions.t_dat > np.datetime64('2020-09-16')][['customer_id', 'article_id']]
-    label['label2'] = 1
-    print(label.head())
-    train_model(df_train_feature, label)
+    # INPUT_DIR = 'dataset/'
+    # transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
+    # transactions.t_dat = cudf.to_datetime(transactions.t_dat)
+    # label = transactions[transactions.t_dat > np.datetime64('2020-09-16')][['customer_id', 'article_id']]
+    # label['label2'] = 1
+    # print(label.head())
+    # train_model(df_train_feature, label)
+    # train_model(df_train_feature)
