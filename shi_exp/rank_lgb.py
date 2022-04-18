@@ -8,10 +8,17 @@ from sklearn.model_selection import GroupKFold
 import pathlib
 import cudf
 import numpy as np
-from utils import Logger, evaluate
+from utils import Logger, evaluate, reduce_mem
+import signal
+import multitasking
 
 seed = 42
 random.seed(seed)
+
+max_threads = multitasking.config['CPU_CORES']
+multitasking.set_max_threads(max_threads)
+multitasking.set_engine('process')
+signal.signal(signal.SIGINT, multitasking.killall)
 
 # init log
 log_file = 'my_log.log'
@@ -117,6 +124,62 @@ def train_model(df_train_set):
     df_oof.to_csv('oof.csv')
 
 
+# @multitasking.task
+def predict_task(target_ids):
+    for target_id in target_ids:
+        print(target_id)
+    #     pass
+    #     recom = get_reccomend(target_id, transactions, Ns, first_week_sales_pred_tmp)
+    #     ml_test = add_features(recom, transactions, articles, customers, first_week_sales_pred_tmp, text_svd_df)
+
+    #     test_pred = np.zeros(len(ml_test))
+    #     models = pathlib.Path(OUTPUT_DIR + f'{exp_name}').glob('model*.pickle')
+
+    #     for m in models:
+    #         with open(m, 'rb') as f:
+    #             model = pickle.load(f)
+    #     test_pred += model.predict(ml_test[features], num_iteration=model.best_iteration) / N_SEED
+
+    #     test = ml_test[['customer_id', 'article_id']].copy()
+    #     test['prob'] = test_pred
+    #     test = test.sort_values(['customer_id', 'prob'], ascending=False)
+    #     test = test.groupby('customer_id').head(12)
+    #     preds.append(test)
+    pass
+
+
+def predict(all_target_ids):
+
+    preds = []
+    n_split = max_threads
+    total = len(all_target_ids)
+    n_len = total // n_split 
+    for i in range(0, total, n_len):
+        split_task_ids = all_target_ids[i:i + n_len]
+        print(len(split_task_ids))
+        # predict_task(split_task_ids)
+        break
+
+    # multitasking.wait_for_tasks()
+    # Logger.debug("predict over")
+
+
+    
+    # del recom, ml_test, test_pred
+    # gc.collect()
+
+    # test = pd.concat(preds)
+    # test['article_id'] = test['article_id'].map(article_ids)
+    # test['customer_id'] = test['customer_id'].map(customer_ids)
+
+    # test = test.groupby('customer_id')['article_id'].apply(list).reset_index()
+
+    # sub = sample['customer_id'].map(customer_ids).to_frame()
+    # sub = sub.merge(test, on=['customer_id'], how='left')
+    # sub = sub.rename(columns={'article_id':'prediction'})
+    # assert(sub['prediction'].apply(len).min()==12)
+    # sub['prediction'] = sub['prediction'].apply(lambda x: ' '.join(x))
+    # sub.to_csv(OUTPUT_DIR + f'{exp_name}/{exp_name}_sub.csv', index=False)
 
 
 # def train_and_predict(df_train_set, topk=12, offline=True):
@@ -188,14 +251,15 @@ def train_model(df_train_set):
 
 if __name__ == '__main__':
 
-    df_train_feature = pd.read_csv('data/rank_train.csv')
-    print(len(df_train_feature['customer_id'].unique()))
+    # df_train_feature = reduce_mem(pd.read_csv('data/rank_train.csv'))
+    # print(len(df_train_feature['customer_id'].unique()))
 
-    # INPUT_DIR = 'dataset/'
+    INPUT_DIR = 'dataset/'
     # transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
     # transactions.t_dat = cudf.to_datetime(transactions.t_dat)
     # label = transactions[transactions.t_dat > np.datetime64('2020-09-16')][['customer_id', 'article_id']]
-    # label['label2'] = 1
-    # print(label.head())
-    # train_model(df_train_feature, label)
+
+    
     # train_model(df_train_feature)
+    target_ids = pd.read_csv(INPUT_DIR + 'sample_submission.csv')['customer_id'].tolist()
+    predict(target_ids)
