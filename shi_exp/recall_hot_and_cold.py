@@ -1,7 +1,7 @@
-
 import os
 import signal
 from collections import defaultdict
+import itertools
 import pickle
 import cudf
 import numpy as np
@@ -25,7 +25,7 @@ log.info('hot recall ')
 
 
 @multitasking.task
-def recall(df_test_part, hot_items, user_item_dict, worker_id):
+def recall_hot(df_test_part, hot_items, user_item_dict, worker_id):
     """
     :param df_test_part
     :param hot_items
@@ -35,18 +35,10 @@ def recall(df_test_part, hot_items, user_item_dict, worker_id):
     """
     data_list = []
 
+    print(str(worker_id) + 'start hot recall')
     for user_id, item_id in tqdm(df_test_part[['customer_id', 'article_id']].values):
-        rank = {}
 
-        # todo code start
-        # if user_id not in user_item_dict:
-        #     df_new_user = pd.DataFrame()
-        #     df_new_user['article_id'] = hot_items[:100]
-        #     df_new_user['sim_score'] = [1/(score+1) for score in range(100)]
-        #     df_new_user['customer_id'] = user_id
-        #     df_new_user['label'] = 0
-        #     data_list.append(df_new_user)
-        #     continue
+        rank = {}
 
         interacted_items = user_item_dict[user_id]
         # get last 12 action find sim item
@@ -82,7 +74,7 @@ def recall(df_test_part, hot_items, user_item_dict, worker_id):
     print(str(worker_id) + 'hot over')
 
 
-def create_reall(df, hot_items_list, user_items_dict):
+def create_reall_hot(df, hot_items_list, user_items_dict):
     # recall by thread
     n_split = max_threads
     all_users = df['customer_id'].unique()
@@ -97,13 +89,81 @@ def create_reall(df, hot_items_list, user_items_dict):
     for i in range(0, total, n_len):
         part_users = all_users[i:i + n_len]
         df_temp = df[df['customer_id'].isin(part_users)]
-        recall(df_temp, hot_items_list, user_items_dict, i)
+        recall_hot(df_temp, hot_items_list, user_items_dict, i)
 
     multitasking.wait_for_tasks()
-    log.info('merge task')
+    # log.info('merge task')
 
+    # df_data = pd.DataFrame()
+    # for path, _, file_list in os.walk('result/hot_tmp'):
+    #     for file_name in file_list:
+    #         df_temp = pd.read_csv(os.path.join(path, file_name))
+    #         df_data = df_data.append(df_temp)
+
+    # # sort
+    # df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[
+    #                               True, False]).reset_index(drop=True)
+
+    # # evo recall
+    # total = df.customer_id.nunique()
+
+    # hitrate_5, mrr_5, hitrate_10, mrr_10, hitrate_20, mrr_20, hitrate_40, mrr_40, hitrate_50, mrr_50 = evaluate(
+    #     df_data[df_data['label'].notnull()], total)
+
+    # log.debug(
+    #     f'itemcf: {hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
+    # )
+    # # save recall result
+    # df_data.to_csv('result/recall_hot.csv', index=False)
+
+
+def create_reall_cold(df, hot_items_list):
+    # recall by thread
+    n_split = max_threads
+    all_users = df['customer_id'].unique()
+    total = len(all_users)
+    n_len = total // n_split
+
+    # delete file save temp task result
+    for path, _, file_list in os.walk('result/hot_tmp'):
+        for file_name in file_list:
+            os.remove(os.path.join(path, file_name))
+
+    for i in range(0, total, n_len):
+        part_users = all_users[i:i + n_len]
+        df_temp = df[df['customer_id'].isin(part_users)]
+        reall_cold(df_temp, hot_items_list, i)
+
+    multitasking.wait_for_tasks()
+
+
+@multitasking.task
+def reall_cold(df, hot_items, worker_id):
+    print(str(worker_id) + 'start cold over')
+    data_list = []
+    for user_id in tqdm(df[['customer_id']].values):
+        df_new_user = pd.DataFrame()
+        df_new_user['article_id'] = hot_items[:100]
+        df_new_user['sim_score'] = [1/(score+1) for score in range(100)]
+        df_new_user['customer_id'] = user_id[0]
+        df_new_user['label'] = 0
+        data_list.append(df_new_user)
+
+    df_part_data = pd.concat(data_list, sort=False)
+    os.makedirs('result/cold_tmp', exist_ok=True)
+    df_part_data.to_csv(f'result/cold_tmp/{worker_id}.csv', index=False)
+    print(str(worker_id) + 'cold over')
+
+
+def merge(df):
+    log.info('merge task')
     df_data = pd.DataFrame()
     for path, _, file_list in os.walk('result/hot_tmp'):
+        for file_name in file_list:
+            df_temp = pd.read_csv(os.path.join(path, file_name))
+            df_data = df_data.append(df_temp)
+
+    for path, _, file_list in os.walk('result/cold_tmp'):
         for file_name in file_list:
             df_temp = pd.read_csv(os.path.join(path, file_name))
             df_data = df_data.append(df_temp)
@@ -135,6 +195,11 @@ if __name__ == '__main__':
     # hot top 100
     hot_items_list = transactions['article_id'].value_counts(
     ).keys().to_arrow().to_pylist()[:100]
+
+    customer_ids = cudf.read_parquet(
+        INPUT_DIR + 'customers.parquet')[['customer_id']].to_pandas()
+
+    # prepare for hot recall
     transactions = transactions.to_pandas()
     user_items_df = transactions.groupby(
         'customer_id')['article_id'].apply(list).reset_index()
@@ -142,4 +207,11 @@ if __name__ == '__main__':
         zip(user_items_df['customer_id'], user_items_df['article_id']))
 
     print('start hot recall')
-    create_reall(transactions, hot_items_list, user_items_dict)
+    create_reall_hot(transactions, hot_items_list, user_items_dict)
+
+    print('start code recall')
+    create_reall_cold(customer_ids, hot_items_list)
+    print('hot cold recall over')
+
+    # start merge
+    merge(transactions)
