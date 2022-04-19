@@ -208,6 +208,8 @@ if __name__ == '__main__':
     customer_tran_features = make_customer_tran_features(transactions).to_pandas()
     df_recall = df_recall.merge(article_tran_features, how='left')
     df_recall = df_recall.merge(customer_tran_features, how='left')
+
+
     log.debug('start save rank feature')
-    df_recall.to_csv('data/rank_train.csv', index=False)
+    df_recall.to_parquet('result/rank_train.parquet', index=False)
     log.debug('over save rank feature')
