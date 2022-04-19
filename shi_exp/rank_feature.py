@@ -191,51 +191,15 @@ def make_customer_tran_features(history):
 if __name__ == '__main__':
     INPUT_DIR = 'dataset/'
 
-    transactions = reduce_mem(pd.read_parquet(
-        INPUT_DIR + 'transactions.parquet'))
-    transactions['t_dat'] = pd.to_datetime(transactions['t_dat'])
+    transactions = pd.read_parquet(
+        INPUT_DIR + 'transactions_train.parquet')
 
-    # transactions['article_id'] = transactions.article_id.astype('int32')
-    # transactions['customer_id'] = transactions.customer_id.astype('int32')
-    # transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-
-    transactions = transactions[(transactions.t_dat >= np.datetime64(
-        '2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))]
+    # transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+    transactions = transactions[transactions.week < transactions.week.max()]
 
     customers = pd.read_parquet(INPUT_DIR + 'customers.parquet')
-    customers['age'] = customers['age'].fillna(int(customers['age'].mean()))
-    customers = reduce_mem(customers).copy()
     articles = reduce_mem(pd.read_parquet(INPUT_DIR + 'articles.parquet'))
     df_recall = reduce_mem(pd.read_csv('result/recall.csv'))
-
-    label_encode_column = [
-        'FN', 'Active', 'fashion_news_frequency', 'club_member_status', 'postal_code']
-    for c in label_encode_column:
-        customers[c] = customers[c].astype(str)
-        # le = cuml.preprocessing.LabelEncoder()
-        le = LabelEncoder()
-        customers[c] = le.fit_transform(customers[c].fillna(''))
-
-
-    label_encode_column = ['product_type_name', 'product_group_name', 'graphical_appearance_name',
-                           'colour_group_name', 'perceived_colour_value_name', 'perceived_colour_master_name', 'department_name',
-                           'index_name', 'index_group_name', 'section_name', 'garment_group_name']
-
-    for c in label_encode_column:
-        articles[c] = articles[c].astype(str)
-        # le = cuml.preprocessing.LabelEncoder()
-        le = LabelEncoder()
-        articles[c] = le.fit_transform(articles[c].fillna(''))
-
-    label_encode_column.insert(0, 'article_id')
-    articles = articles[label_encode_column]
-
-    #  null count
-    # FN 895050
-    # Active 907576
-    select_column = ['customer_id', 'club_member_status',
-                     'fashion_news_frequency', 'age', 'postal_code']
-    customers = customers[select_column]
     
     # use cudf to calculate
     transactions = cudf.DataFrame.from_pandas(transactions)

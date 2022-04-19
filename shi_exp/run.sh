@@ -1,5 +1,5 @@
 #!/bin/bash
-# data_process.py
+python prepare_dataset.py
 python recall_itemcf.py
 python recall_hot.py
 python recall.py

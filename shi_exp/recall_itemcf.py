@@ -24,6 +24,7 @@ os.makedirs('log', exist_ok=True)
 log = Logger(f'log/{log_file}').logger
 log.info('itemcf recall ')
 
+top_k = 20
 
 def itemcf_sim(train_set):
     """
@@ -94,8 +95,8 @@ def recall(df_test_part, item_sim, user_item_dict, worker_id):
                     # time decay
                     rank[relate_item] += wij * (0.7 ** loc)
 
-        # get top 100
-        sim_items = sorted(rank.items(), key=lambda d: d[1], reverse=True)[:100]
+        # get top k 
+        sim_items = sorted(rank.items(), key=lambda d: d[1], reverse=True)[:top_k]
         item_ids = [item[0] for item in sim_items]
         item_sim_scores = [item[1] for item in sim_items]
 
@@ -116,6 +117,7 @@ def recall(df_test_part, item_sim, user_item_dict, worker_id):
 
 def create_recall(item_sim_dict, user_items_dict, df_test, predict=True):
 
+    df_test = df_test[['customer_id', 'article_id']].drop_duplicates()
     all_users = df_test['customer_id'].unique()
     n_split = max_threads
     total = len(all_users)
@@ -160,9 +162,9 @@ def create_recall(item_sim_dict, user_items_dict, df_test, predict=True):
 if __name__ == '__main__':
 
     INPUT_DIR = 'dataset/'
-    transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
-    transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-    transactions = transactions[(transactions.t_dat >= np.datetime64('2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))].to_pandas()
+    transactions = pd.read_parquet(INPUT_DIR + 'transactions_train.parquet')
+    transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+
     if not os.path.isfile('result/itemcf_sim.pkl'):
         #calculate itemcf
         item_sim_dict, user_items_dict = itemcf_sim(transactions)

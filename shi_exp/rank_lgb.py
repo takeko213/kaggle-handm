@@ -251,15 +251,15 @@ def predict(all_target_ids):
 
 if __name__ == '__main__':
 
-    # df_train_feature = reduce_mem(pd.read_csv('data/rank_train.csv'))
-    # print(len(df_train_feature['customer_id'].unique()))
+    df_train_feature = reduce_mem(pd.read_csv('data/rank_train.csv'))
+    print(len(df_train_feature['customer_id'].unique()))
 
-    INPUT_DIR = 'dataset/'
+    # INPUT_DIR = 'dataset/'
     # transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
     # transactions.t_dat = cudf.to_datetime(transactions.t_dat)
     # label = transactions[transactions.t_dat > np.datetime64('2020-09-16')][['customer_id', 'article_id']]
 
     
-    # train_model(df_train_feature)
-    target_ids = pd.read_csv(INPUT_DIR + 'sample_submission.csv')['customer_id'].tolist()
-    predict(target_ids)
+    train_model(df_train_feature)
+    # target_ids = pd.read_csv(INPUT_DIR + 'sample_submission.csv')['customer_id'].tolist()
+    # predict(target_ids)

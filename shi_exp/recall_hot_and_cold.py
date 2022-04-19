@@ -4,6 +4,7 @@ from collections import defaultdict
 import itertools
 import pickle
 import cudf
+import gc
 import numpy as np
 
 import multitasking
@@ -21,7 +22,10 @@ signal.signal(signal.SIGINT, multitasking.killall)
 log_file = 'my_log.log'
 os.makedirs('log', exist_ok=True)
 log = Logger(f'log/{log_file}').logger
-log.info('hot recall ')
+log.info('hot recall & cold recall')
+
+# memory
+top_k = 20
 
 
 @multitasking.task
@@ -44,17 +48,17 @@ def recall_hot(df_test_part, hot_items, user_item_dict, worker_id):
         # get last 12 action find sim item
         interacted_items = interacted_items[::-1][:12]
 
-        # get top 100
-        for loc, relate_item in enumerate(hot_items[:100]):
+        # get top k 
+        for loc, relate_item in enumerate(hot_items[:top_k]):
             # relate_item can't be last buy
             if relate_item not in interacted_items:
                 rank.setdefault(relate_item, 0)
                 # time decay
                 rank[relate_item] = 1/(loc+1)
 
-        # recalculate score tak top 100
+        # recalculate score tak topk
         sim_items = sorted(
-            rank.items(), key=lambda d: d[1], reverse=True)[:100]
+            rank.items(), key=lambda d: d[1], reverse=True)[:top_k]
         item_ids = [item[0] for item in sim_items]
         item_sim_scores = [item[1] for item in sim_items]
 
@@ -76,6 +80,7 @@ def recall_hot(df_test_part, hot_items, user_item_dict, worker_id):
 
 def create_reall_hot(df, hot_items_list, user_items_dict):
     # recall by thread
+   
     n_split = max_threads
     all_users = df['customer_id'].unique()
     total = len(all_users)
@@ -92,13 +97,13 @@ def create_reall_hot(df, hot_items_list, user_items_dict):
         recall_hot(df_temp, hot_items_list, user_items_dict, i)
 
     multitasking.wait_for_tasks()
-    # log.info('merge task')
+    log.info('merge task')
 
-    # df_data = pd.DataFrame()
-    # for path, _, file_list in os.walk('result/hot_tmp'):
-    #     for file_name in file_list:
-    #         df_temp = pd.read_csv(os.path.join(path, file_name))
-    #         df_data = df_data.append(df_temp)
+    df_data = pd.DataFrame()
+    for path, _, file_list in os.walk('result/cold_tmp'):
+        for file_name in file_list:
+            df_temp = pd.read_csv(os.path.join(path, file_name))
+            df_data = df_data.append(df_temp)
 
     # # sort
     # df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[
@@ -114,7 +119,7 @@ def create_reall_hot(df, hot_items_list, user_items_dict):
     #     f'itemcf: {hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
     # )
     # # save recall result
-    # df_data.to_csv('result/recall_hot.csv', index=False)
+    df_data.to_csv('result/recall_hot.csv', index=False)
 
 
 def create_reall_cold(df, hot_items_list):
@@ -125,7 +130,7 @@ def create_reall_cold(df, hot_items_list):
     n_len = total // n_split
 
     # delete file save temp task result
-    for path, _, file_list in os.walk('result/hot_tmp'):
+    for path, _, file_list in os.walk('result/cold_tmp'):
         for file_name in file_list:
             os.remove(os.path.join(path, file_name))
 
@@ -143,8 +148,9 @@ def reall_cold(df, hot_items, worker_id):
     data_list = []
     for user_id in tqdm(df[['customer_id']].values):
         df_new_user = pd.DataFrame()
-        df_new_user['article_id'] = hot_items[:100]
-        df_new_user['sim_score'] = [1/(score+1) for score in range(100)]
+        #get topk
+        df_new_user['article_id'] = hot_items[:top_k]
+        df_new_user['sim_score'] = [1/(score+1) for score in range(top_k)]
         df_new_user['customer_id'] = user_id[0]
         df_new_user['label'] = 0
         data_list.append(df_new_user)
@@ -162,56 +168,64 @@ def merge(df):
         for file_name in file_list:
             df_temp = pd.read_csv(os.path.join(path, file_name))
             df_data = df_data.append(df_temp)
+            del df_temp
+            gc.collect()
+
+    print(df_data.head())
+    # # evo recall
+    # total = df.customer_id.nunique()
+
+    # hitrate_5, mrr_5, hitrate_10, mrr_10, hitrate_20, mrr_20, hitrate_40, mrr_40, hitrate_50, mrr_50 = evaluate(
+    #     df_data[df_data['label'].notnull()], total)
+
+    # log.debug(
+    #     f'itemcf: {hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
+    # )
 
     for path, _, file_list in os.walk('result/cold_tmp'):
         for file_name in file_list:
             df_temp = pd.read_csv(os.path.join(path, file_name))
             df_data = df_data.append(df_temp)
+            del df_temp
+            gc.collect()
 
     # sort
     df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[
                                   True, False]).reset_index(drop=True)
 
-    # evo recall
-    total = df.customer_id.nunique()
-
-    hitrate_5, mrr_5, hitrate_10, mrr_10, hitrate_20, mrr_20, hitrate_40, mrr_40, hitrate_50, mrr_50 = evaluate(
-        df_data[df_data['label'].notnull()], total)
-
-    log.debug(
-        f'itemcf: {hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
-    )
+    
     # save recall result
     df_data.to_csv('result/recall_hot.csv', index=False)
 
 
 if __name__ == '__main__':
     INPUT_DIR = 'dataset/'
-    transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
-    transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-    transactions = transactions[(transactions.t_dat >= np.datetime64(
-        '2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))]
+    transactions = pd.read_parquet(INPUT_DIR + 'transactions_train.parquet')
+    transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
 
     # hot top 100
     hot_items_list = transactions['article_id'].value_counts(
-    ).keys().to_arrow().to_pylist()[:100]
+    ).keys()[:100]
 
-    customer_ids = cudf.read_parquet(
-        INPUT_DIR + 'customers.parquet')[['customer_id']].to_pandas()
-
+    customer_ids = pd.read_parquet(
+        INPUT_DIR + 'customers.parquet')[['customer_id']]
+  
     # prepare for hot recall
-    transactions = transactions.to_pandas()
+    transactions = transactions[['customer_id', 'article_id']].drop_duplicates()
     user_items_df = transactions.groupby(
         'customer_id')['article_id'].apply(list).reset_index()
     user_items_dict = dict(
         zip(user_items_df['customer_id'], user_items_df['article_id']))
 
-    print('start hot recall')
+    print('start cold recall')
     create_reall_hot(transactions, hot_items_list, user_items_dict)
+    print('hots recall over')
 
-    print('start code recall')
+    # cold recall
+    hot_user_ids = transactions['customer_id'].drop_duplicates()
+    cold_user_ids = customer_ids[~customer_ids.customer_id.isin(hot_user_ids)]
     create_reall_cold(customer_ids, hot_items_list)
-    print('hot cold recall over')
+    print('cold recall over')
 
-    # start merge
+    # # start merge
     merge(transactions)

@@ -4,6 +4,7 @@ import os
 import warnings
 from collections import defaultdict
 from itertools import permutations
+import gc
 
 import pandas as pd
 from tqdm import tqdm
@@ -76,12 +77,6 @@ def recall_result_sim(df1_, df2_):
 
 if __name__ == '__main__':
 
-    INPUT_DIR = 'dataset/'
-    transactions = cudf.read_parquet(INPUT_DIR + 'transactions.parquet')
-    transactions.t_dat = cudf.to_datetime(transactions.t_dat)
-    transactions = transactions[(transactions.t_dat >= np.datetime64(
-        '2020-08-01')) & (transactions.t_dat < np.datetime64('2020-09-16'))].to_pandas()
-
     recall_path = 'result'
 
     # recall methods
@@ -99,6 +94,8 @@ if __name__ == '__main__':
         recall_result['sim_score'] = recall_result['sim_score'] * weight
 
         recall_list.append(recall_result)
+        del recall_result 
+        gc.collect()
         # recall_dict[recall_method] = recall_result
 
     # merge result
@@ -118,14 +115,14 @@ if __name__ == '__main__':
     recall_final = recall_final.groupby('customer_id').head(50)
     log.debug(f'recall_final.shape: {recall_final.shape}')
 
-    # evo recall
-    total = transactions.customer_id.nunique()
-    hitrate_5, mrr_5, hitrate_10, mrr_10, hitrate_20, mrr_20, hitrate_40, mrr_40, hitrate_50, mrr_50 = evaluate(
-        recall_final[recall_final['label'].notnull()], total)
+    # # evo recall
+    # total = transactions.customer_id.nunique()
+    # hitrate_5, mrr_5, hitrate_10, mrr_10, hitrate_20, mrr_20, hitrate_40, mrr_40, hitrate_50, mrr_50 = evaluate(
+    #     recall_final[recall_final['label'].notnull()], total)
 
-    log.debug(
-        f'evo recall: {hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
-    )
+    # log.debug(
+    #     f'evo recall: {hitrate_5}, {mrr_5}, {hitrate_10}, {mrr_10}, {hitrate_20}, {mrr_20}, {hitrate_40}, {mrr_40}, {hitrate_50}, {mrr_50}'
+    # )
 
     df = recall_final['customer_id'].value_counts().reset_index()
     df.columns = ['customer_id', 'cnt']
