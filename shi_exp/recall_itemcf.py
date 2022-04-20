@@ -163,7 +163,8 @@ if __name__ == '__main__':
 
     INPUT_DIR = 'dataset/'
     transactions = pd.read_parquet(INPUT_DIR + 'transactions_train.parquet')
-    transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+    # transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+    transactions = transactions[(transactions.week >= transactions.week.max() - 12)]
 
     if not os.path.isfile('result/itemcf_sim.pkl'):
         #calculate itemcf
