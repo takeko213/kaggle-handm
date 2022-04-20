@@ -5,6 +5,7 @@ import os
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
+import pickle
 # from average_precision import apk
 # import cuml
 
@@ -32,13 +33,20 @@ if __name__ == '__main__':
 
     ALL_CUSTOMER = customers['customer_id'].unique().tolist()
     ALL_ARTICLE = articles['article_id'].unique().tolist()
-
+    ALL_CUSTOMER.sort()
+    ALL_ARTICLE.sort() 
     customer_ids = dict(list(enumerate(ALL_CUSTOMER)))
     article_ids = dict(list(enumerate(ALL_ARTICLE)))
 
     customer_map = {u: uidx for uidx, u in customer_ids.items()}
     article_map = {i: iidx for iidx, i in article_ids.items()}
-    
+
+    with open("dataset/customer_ids.pickle", 'wb') as handle:
+        pickle.dump(customer_ids, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open("dataset/article_ids.pickle", 'wb') as handle:
+        pickle.dump(article_ids, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
     log.info('start prepare transactions')
     # transactions = pd.read_csv(INPUT_DIR + 'transactions_train.csv', dtype={"article_id": "str"})
 
@@ -99,3 +107,9 @@ if __name__ == '__main__':
     transactions.to_parquet('dataset/transactions_train.parquet')
     customers.to_parquet('dataset/customers.parquet')
     articles.to_parquet('dataset/articles.parquet')
+
+    print('create val df')
+    df_val = transactions[transactions.week == transactions.week.max()]
+    df_val = df_val[['customer_id', 'article_id']].drop_duplicates().reset_index(drop=True)
+    df_val.to_parquet('dataset/df_val.parquet')
+    print('create val df over')
