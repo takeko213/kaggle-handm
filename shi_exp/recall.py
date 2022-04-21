@@ -86,8 +86,8 @@ if __name__ == '__main__':
     recall_list = []
     # recall_dict = {}
     for recall_method in recall_methods:
-        recall_result = pd.read_csv(
-            f'{recall_path}/recall_{recall_method}.csv')
+        recall_result = pd.read_parquet(
+            f'{recall_path}/recall_{recall_method}.parquet')
         weight = weights[recall_method]
 
         recall_result['sim_score'] = mms(recall_result)
@@ -131,5 +131,6 @@ if __name__ == '__main__':
     log.debug(
         f"label distribute: {recall_final[recall_final['label'].notnull()]['label'].value_counts()}"
     )
+    recall_final.to_parquet('result/recall.parquet', index=False)
 
-    recall_final.to_csv('result/recall.csv', index=False)
+    # recall_final.to_csv('result/recall.csv', index=False)

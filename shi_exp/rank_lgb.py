@@ -76,8 +76,8 @@ def train_lgb(df_train_set, topk=12, offline=True):
                                                max_depth=-1, n_estimators=5000, subsample=0.7, colsample_bytree=0.7, subsample_freq=1,
                                                learning_rate=0.01, min_child_weight=50, random_state=42, n_jobs=-1)
 
-        lgb_Classfication.fit(X_train[feature_names], X_val, eval_set=[(
-            Y_train[feature_names], Y_val)], eval_metric=['auc', ], early_stopping_rounds=50, verbose=100)
+        lgb_Classfication.fit(X_train[feature_names], X_train[ycol], eval_set=[(
+            Y_train[feature_names], Y_train[ycol])], eval_metric=['auc', ], early_stopping_rounds=200, verbose=100)
 
         joblib.dump(lgb_Classfication, f'model/lgb_ranker{fold_id}.pkl')
 
@@ -256,9 +256,10 @@ def calculate_cv():
 
 if __name__ == '__main__':
     df_train_set = pd.read_parquet('result/rank_train.parquet')
-    train_lgb_rank(df_train_set)
+    print(df_train_set.head())
+    # train_lgb_rank(df_train_set)
     
-    train_lgb(df_train_set)
+    # train_lgb(df_train_set)
     # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet')
     # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet') 
     # submit(df)
