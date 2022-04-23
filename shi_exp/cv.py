@@ -4,11 +4,18 @@ import numpy as np
 from utils import metrics
 
 if __name__ == '__main__':
+    test = True
+    INPUT_DIR = 'dataset/'
+    if test:
+        df_val = pd.read_parquet('dataset/df_val01.parquet')
+    else:
+        df_val = pd.read_parquet('dataset/df_val.parquet')
+
     df_val = pd.read_parquet('dataset/df_val.parquet')
-    print(len(df_val.customer_id.unique())) #68984
-    
+    print(len(df_val.customer_id.unique()))  # 68984
+
     df_predict = pd.read_parquet('result/recall_hot_and_cold.parquet')
-    print(len(df_predict.customer_id.unique())) #505114
+    print(len(df_predict.customer_id.unique()))  # 505114
 
     # df = df_predict.groupby('customer_id')['article_id'].count().reset_index()
     # print(df.head())

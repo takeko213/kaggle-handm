@@ -12,11 +12,11 @@ def apk(actual, predicted, k=10):
 
     score = 0.0
     num_hits = 0.0
-    
+
     for i, p in enumerate(predicted):
         if p in actual and p not in predicted[:i]:
             num_hits += 1.0
-            score += num_hits / (i+1.0)
+            score += num_hits / (i + 1.0)
     return score / min(len(actual), k)
 
 
@@ -30,7 +30,7 @@ def metrics(merged, topk=12):
     # valid_unq = val_df.groupby('customer_id')[
     #     'article_id'].apply(list).reset_index()
     # valid_unq.columns = ['customer_id', 'valid_true']
-    
+
     # merged = valid_unq.merge(train_unq, how='left').fillna([''])
     # merged = merged[merged['valid_true'] != ''].reset_index(drop=True)
 
@@ -38,6 +38,7 @@ def metrics(merged, topk=12):
         merged['valid_true'], merged['valid_pred'])])
     print(score)
     return score
+
 
 def evaluate(df, total):
     hitrate_5 = 0
@@ -100,13 +101,13 @@ def evaluate(df, total):
 
     hitrate_50 /= total
 
-    return hitrate_5, hitrate_10, hitrate_20, hitrate_40, hitrate_50 
+    return hitrate_5, hitrate_10, hitrate_20, hitrate_40, hitrate_50
 
 
 def reduce_mem(df):
     starttime = time.time()
     numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-    start_mem = df.memory_usage().sum() / 1024**2
+    start_mem = df.memory_usage().sum() / 1024 ** 2
     for col in df.columns:
         col_type = df[col].dtypes
         if col_type in numerics:
@@ -130,7 +131,7 @@ def reduce_mem(df):
                     df[col] = df[col].astype(np.float32)
                 else:
                     df[col] = df[col].astype(np.float64)
-    end_mem = df.memory_usage().sum() / 1024**2
+    end_mem = df.memory_usage().sum() / 1024 ** 2
     # print('-- Mem. usage decreased to {:5.2f} Mb ({:.1f}% reduction),time spend:{:2.2f} min'.format(end_mem,
     #                                                                                                        100*(start_mem-end_mem)/start_mem,
     #                                                                                                        (time.time()-starttime)/60))
@@ -147,10 +148,10 @@ class Logger(object):
     }
 
     def __init__(
-        self,
-        filename,
-        level='debug',
-        fmt='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s'
+            self,
+            filename,
+            level='debug',
+            fmt='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s'
     ):
         self.logger = logging.getLogger(filename)
         format_str = logging.Formatter(fmt)

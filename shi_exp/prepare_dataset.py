@@ -1,13 +1,9 @@
 import pandas as pd
-import cudf
 import os
-# helper functions
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
 import pickle
-# from average_precision import apk
-# import cuml
 
 from utils import Logger, reduce_mem
 
@@ -17,15 +13,8 @@ os.makedirs('log', exist_ok=True)
 log = Logger(f'log/{log_file}').logger
 log.info('preprocess dataset')
 
-# https://www.kaggle.com/c/h-and-m-personalized-fashion-recommendations/discussion/308635
-def customer_hex_id_to_int(series):
-    return series.str[-16:].apply(hex_id_to_int)
-
-def hex_id_to_int(str):
-    return int(str[-16:], 16)
-
 if __name__ == '__main__':
-    INPUT_DIR = '/home/shi/workspace/h-and-m-personalized-fashion-recommendations/'
+    INPUT_DIR = '../../h-and-m-personalized-fashion-recommendations/'
 
     transactions = pd.read_csv(INPUT_DIR + 'transactions_train.csv', dtype={"article_id": "str"})
     articles = pd.read_csv(INPUT_DIR + 'articles.csv', dtype={"article_id": "str"})
@@ -34,7 +23,7 @@ if __name__ == '__main__':
     ALL_CUSTOMER = customers['customer_id'].unique().tolist()
     ALL_ARTICLE = articles['article_id'].unique().tolist()
     ALL_CUSTOMER.sort()
-    ALL_ARTICLE.sort() 
+    ALL_ARTICLE.sort()
     customer_ids = dict(list(enumerate(ALL_CUSTOMER)))
     article_ids = dict(list(enumerate(ALL_ARTICLE)))
 
@@ -58,13 +47,12 @@ if __name__ == '__main__':
     log.info(transactions.dtypes)
     log.info('over prepare transactions')
 
-    
     log.info('start prepare articles')
     articles = pd.read_csv(INPUT_DIR + 'articles.csv', dtype={"article_id": "str"})
     articles.article_id = articles['article_id'].map(article_map)
-    # todo None none
     label_encode_column = ['product_type_name', 'product_group_name', 'graphical_appearance_name',
-                           'colour_group_name', 'perceived_colour_value_name', 'perceived_colour_master_name', 'department_name',
+                           'colour_group_name', 'perceived_colour_value_name', 'perceived_colour_master_name',
+                           'department_name',
                            'index_name', 'index_group_name', 'section_name', 'garment_group_name']
 
     for c in label_encode_column:
@@ -76,8 +64,7 @@ if __name__ == '__main__':
     articles = articles[label_encode_column]
     articles = reduce_mem(articles)
     log.info(articles.dtypes)
-    log.info('over prepare articles') 
-
+    log.info('over prepare articles')
 
     log.info('start prepare customers')
     customers = pd.read_csv(INPUT_DIR + 'customers.csv')
@@ -87,7 +74,7 @@ if __name__ == '__main__':
     customers['age'] = customers['age'].fillna(int(customers['age'].mean()))
 
     # replace None to NONE
-    customers['fashion_news_frequency'] = customers['fashion_news_frequency'].str.replace('None','NONE')
+    customers['fashion_news_frequency'] = customers['fashion_news_frequency'].str.replace('None', 'NONE')
 
     label_encode_column = [
         'FN', 'Active', 'fashion_news_frequency', 'club_member_status', 'postal_code']
@@ -95,7 +82,7 @@ if __name__ == '__main__':
         customers[c] = customers[c].astype(str)
         le = LabelEncoder()
         customers[c] = le.fit_transform(customers[c].fillna(''))
-        
+
     #  null count
     # FN 895050
     # Active 907576
@@ -105,7 +92,7 @@ if __name__ == '__main__':
     customers = reduce_mem(customers)
     log.info(customers.dtypes)
     log.info('over prepare customers')
-    
+
     transactions.to_parquet('dataset/transactions_train.parquet')
     customers.to_parquet('dataset/customers.parquet')
     articles.to_parquet('dataset/articles.parquet')
@@ -118,7 +105,7 @@ if __name__ == '__main__':
 
     for sample_repr, sample in [("01", 0.001), ("1", 0.01), ("5", 0.05)]:
         print(sample)
-        customers_sample = customers.sample(int(customers.shape[0]*sample), replace=False)
+        customers_sample = customers.sample(int(customers.shape[0] * sample), replace=False)
         customers_sample_ids = set(customers_sample["customer_id"])
         transactions_sample = transactions[transactions["customer_id"].isin(customers_sample_ids)]
         articles_sample_ids = set(transactions_sample["article_id"])

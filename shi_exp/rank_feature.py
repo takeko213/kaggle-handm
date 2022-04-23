@@ -16,12 +16,11 @@ log.info('rank feature')
 
 
 def make_article_tran_features(history):
-
     datediff_sale_max_min = history.groupby('article_id').agg(
         {'t_dat': ['max', 'min']}).reset_index()
     datediff_sale_max_min.columns = ['article_id', 'sale_max', 'sale_min']
     datediff_sale_max_min['datediff_sale_max_min'] = (
-        datediff_sale_max_min['sale_max'] - datediff_sale_max_min['sale_min']).dt.days  # int64
+            datediff_sale_max_min['sale_max'] - datediff_sale_max_min['sale_min']).dt.days  # int64
     datediff_sale_max_min = datediff_sale_max_min.drop(
         columns=['sale_max', 'sale_min'])
 
@@ -70,7 +69,7 @@ def make_article_tran_features(history):
     # frequency_sale_recent_21_days.columns = ['article_id','frequency_sale_recent_21_days']
     # sale_price_recent_21_days = history[history.t_dat >= date_condition].groupby('article_id').agg({'price':['sum']}).reset_index()
     # sale_price_recent_21_days.columns = ['article_id', 'sale_price_sum_recent_21_days']
-#     print(sale_price_recent_21_days)
+    #     print(sale_price_recent_21_days)
 
     dfs = [
         #            datediff_sale_max_min,
@@ -103,12 +102,11 @@ def make_article_tran_features(history):
 
 
 def make_customer_tran_features(history):
-
     datediff_buy_max_min = history.groupby('customer_id').agg(
         {'t_dat': ['max', 'min']}).reset_index()
     datediff_buy_max_min.columns = ['customer_id', 'buy_max', 'buy_min']
     datediff_buy_max_min['datediff_buy_max_min'] = (
-        datediff_buy_max_min['buy_max'] - datediff_buy_max_min['buy_min']).dt.days  # int64
+            datediff_buy_max_min['buy_max'] - datediff_buy_max_min['buy_min']).dt.days  # int64
     datediff_buy_max_min = datediff_buy_max_min.drop(
         columns=['buy_max', 'buy_min'])
 
@@ -179,7 +177,7 @@ def make_customer_tran_features(history):
     for df in dfs:
         result = result.merge(df, on='customer_id', how='left')
     result = result.fillna(0)
-#     print(result.columns)
+    #     print(result.columns)
 
     normalize_columns = result.columns.tolist()
     normalize_columns.remove('customer_id')
@@ -192,21 +190,22 @@ def make_customer_tran_features(history):
 if __name__ == '__main__':
     args = sys.argv
 
-    offline=True
+    offline = True
 
     INPUT_DIR = 'dataset/'
     transactions = pd.read_parquet(
         INPUT_DIR + 'transactions_train.parquet')
 
     if offline:
-        transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+        transactions = transactions[
+            (transactions.week >= transactions.week.max() - 12) & (transactions.week < transactions.week.max())]
     else:
         transactions = transactions[transactions.week < transactions.week.max()]
 
     customers = pd.read_parquet(INPUT_DIR + 'customers.parquet')
     articles = reduce_mem(pd.read_parquet(INPUT_DIR + 'articles.parquet'))
     df_recall = reduce_mem(pd.read_parquet('result/recall.parquet'))
-    
+
     # use cudf to calculate
     transactions = cudf.DataFrame.from_pandas(transactions)
 

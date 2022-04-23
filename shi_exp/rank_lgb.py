@@ -51,10 +51,11 @@ def train_lgb(df_train_set, topk=12, offline=True):
     :param df_train_set
     :return:
     """
-    fold = 5 
+    fold = 5
     ycol = 'label'
     feature_names = list(
-        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id', 'week'], df_train_set.columns))
+        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id', 'week'],
+               df_train_set.columns))
 
     df_importance_list = []
     score_list = []
@@ -69,13 +70,13 @@ def train_lgb(df_train_set, topk=12, offline=True):
 
     # for fold_id, (trn_idx, val_idx) in enumerate(
     #         kfold.split(df_train_set[feature_names], df_train_set[ycol], df_train_set['customer_id'])):
-    for fold_id, valid_user in enumerate(user_set): 
-
+    for fold_id, valid_user in enumerate(user_set):
         X_train = df_train_set[~df_train_set['customer_id'].isin(valid_user)]
         Y_train = df_train_set[df_train_set['customer_id'].isin(valid_user)]
 
         lgb_Classfication = lgb.LGBMClassifier(boosting_type='gbdt', num_leaves=31, reg_alpha=0.0, reg_lambda=1,
-                                               max_depth=-1, n_estimators=5000, subsample=0.7, colsample_bytree=0.7, subsample_freq=1,
+                                               max_depth=-1, n_estimators=5000, subsample=0.7, colsample_bytree=0.7,
+                                               subsample_freq=1,
                                                learning_rate=0.01, min_child_weight=50, random_state=42, n_jobs=-1)
 
         lgb_Classfication.fit(X_train[feature_names], X_train[ycol], eval_set=[(
@@ -86,7 +87,7 @@ def train_lgb(df_train_set, topk=12, offline=True):
         df_importance = pd.DataFrame({
             'feature_name':
                 feature_names,
-                'importance':
+            'importance':
                 lgb_Classfication.feature_importances_,
         })
 
@@ -108,19 +109,20 @@ def train_lgb(df_train_set, topk=12, offline=True):
     del df_train_set
     gc.collect()
 
-    log.debug('*'*20)
+    log.debug('*' * 20)
     df_importance = pd.concat(df_importance_list)
     df_importance = df_importance.groupby([
         'feature_name'
     ])['importance'].agg('mean').sort_values(ascending=False).reset_index()
     log.debug(f'importance: {df_importance}')
-    log.debug('*'*20)
+    log.debug('*' * 20)
     score_df_ = pd.concat(score_list, axis=0)
     score_df = score_df.merge(score_df_, how='left', on=[
-                              'customer_id', 'article_id'])
+        'customer_id', 'article_id'])
 
     score_df[['customer_id', 'article_id', 'pred_score', 'pred_rank',
               'label']].to_parquet('result/trn_lgb_classification_feats.parquet', index=False)
+
 
 def get_kfold_users(trn_df, n=5):
     user_ids = trn_df['customer_id'].unique()
@@ -135,10 +137,11 @@ def train_lgb_rank(df_train_set):
     :param df_train_set
     :return:
     """
-    fold = 2 
+    fold = 2
     ycol = 'label'
     feature_names = list(
-        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id', 'week'], df_train_set.columns))
+        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id', 'week'],
+               df_train_set.columns))
     print(feature_names)
     df_importance_list = []
     score_list = []
@@ -159,18 +162,20 @@ def train_lgb_rank(df_train_set):
             ycol].values
 
         lgb_ranker = lgb.LGBMRanker(boosting_type='gbdt', num_leaves=31, reg_alpha=0.0, reg_lambda=1,
-                                    max_depth=-1, n_estimators=5000, subsample=0.7, colsample_bytree=0.7, subsample_freq=1,
+                                    max_depth=-1, n_estimators=5000, subsample=0.7, colsample_bytree=0.7,
+                                    subsample_freq=1,
                                     learning_rate=0.01, min_child_weight=50, random_state=42, n_jobs=-1)
 
-        lgb_ranker.fit(X_train[feature_names], X_train[ycol], group=g_train, eval_set=[(Y_train[feature_names], Y_train[ycol])], eval_group=[
-                       g_eval], early_stopping_rounds=200, verbose=100, eval_at=[12], eval_metric=['ndcg', ])
+        lgb_ranker.fit(X_train[feature_names], X_train[ycol], group=g_train,
+                       eval_set=[(Y_train[feature_names], Y_train[ycol])], eval_group=[
+                g_eval], early_stopping_rounds=200, verbose=100, eval_at=[12], eval_metric=['ndcg', ])
 
         joblib.dump(lgb_ranker, f'model/lgb{fold_id}.pkl')
 
         df_importance = pd.DataFrame({
             'feature_name':
                 feature_names,
-                'importance':
+            'importance':
                 lgb_ranker.feature_importances_,
         })
 
@@ -179,7 +184,7 @@ def train_lgb_rank(df_train_set):
         Y_train['pred_score'] = lgb_ranker.predict(
             Y_train[feature_names], num_iteration=lgb_ranker.best_iteration_)
         Y_train['pred_score'] = Y_train[['pred_score']
-                                        ].transform(lambda x: norm_sim(x))
+        ].transform(lambda x: norm_sim(x))
 
         Y_train.sort_values(by=['customer_id', 'pred_score'])
         Y_train['pred_rank'] = Y_train.groupby(
@@ -194,31 +199,30 @@ def train_lgb_rank(df_train_set):
     del df_train_set
     gc.collect()
 
-    log.debug('*'*20)
+    log.debug('*' * 20)
     df_importance = pd.concat(df_importance_list)
     df_importance = df_importance.groupby([
         'feature_name'
     ])['importance'].agg('mean').sort_values(ascending=False).reset_index()
     log.debug(f'importance: {df_importance}')
-    log.debug('*'*20)
+    log.debug('*' * 20)
     score_df_ = pd.concat(score_list, axis=0)
     score_df = score_df.merge(score_df_, how='left', on=[
-                              'customer_id', 'article_id'])
+        'customer_id', 'article_id'])
     score_df[['customer_id', 'article_id', 'pred_score', 'pred_rank',
               'label']].to_parquet('result/trn_lgb_ranker_feats.parquet', index=False)
 
 
 def submit(recall_df, topk=12, model_name='formmat'):
-
     INPUT_DIR = '/home/shi/workspace/h-and-m-personalized-fashion-recommendations/'
     articles = pd.read_csv(INPUT_DIR + 'articles.csv',
                            dtype={"article_id": "str"})[['article_id']]
     customers = pd.read_csv(INPUT_DIR + 'customers.csv')[['customer_id']]
 
-    with open("dataset/customer_ids.pickle",'rb') as file:
+    with open("dataset/customer_ids.pickle", 'rb') as file:
         customer_map = pickle.load(file)
-    
-    with open("dataset/article_ids.pickle",'rb') as file:
+
+    with open("dataset/article_ids.pickle", 'rb') as file:
         article_map = pickle.load(file)
 
     customers['customer_ids_int'] = customers['customer_id'].map(customer_map)
@@ -261,7 +265,7 @@ if __name__ == '__main__':
     df_train_set = pd.read_parquet('result/rank_train.parquet')
     print(len(df_train_set.customer_id.unique()))
     # train_lgb_rank(df_train_set)
-    
+
     # train_lgb(df_train_set)
     df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet')
     # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet') 

@@ -9,7 +9,6 @@ import multitasking
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import cudf
 import sys
 import itertools
 
@@ -139,9 +138,13 @@ def create_recall(item_sim_dict, user_items_dict, df_test, offline=True):
 
 if __name__ == '__main__':
     offline = True
+    test = True
     start_week =12
     INPUT_DIR = 'dataset/'
-    transactions = pd.read_parquet(INPUT_DIR + 'transactions_train.parquet')
+    if test:
+        transactions = pd.read_parquet(INPUT_DIR + 'transactions_train_sample01.parquet')
+    else:
+        transactions = pd.read_parquet(INPUT_DIR + 'transactions_train.parquet')
 
     if offline:
         transactions = transactions[(transactions.week >= transactions.week.max(
