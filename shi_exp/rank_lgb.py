@@ -13,6 +13,8 @@ import signal
 import multitasking
 import gc
 import datetime
+import sys
+import pickle
 
 seed = 42
 random.seed(seed)
@@ -52,7 +54,7 @@ def train_lgb(df_train_set, topk=12, offline=True):
     fold = 5 
     ycol = 'label'
     feature_names = list(
-        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id'], df_train_set.columns))
+        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id', 'week'], df_train_set.columns))
 
     df_importance_list = []
     score_list = []
@@ -133,10 +135,10 @@ def train_lgb_rank(df_train_set):
     :param df_train_set
     :return:
     """
-    fold = 5 
+    fold = 2 
     ycol = 'label'
     feature_names = list(
-        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id'], df_train_set.columns))
+        filter(lambda x: x not in [ycol, 'sales_channel_id', 'customer_id', 'article_id', 'week'], df_train_set.columns))
     print(feature_names)
     df_importance_list = []
     score_list = []
@@ -212,12 +214,13 @@ def submit(recall_df, topk=12, model_name='formmat'):
     articles = pd.read_csv(INPUT_DIR + 'articles.csv',
                            dtype={"article_id": "str"})[['article_id']]
     customers = pd.read_csv(INPUT_DIR + 'customers.csv')[['customer_id']]
-    ALL_CUSTOMER = customers['customer_id'].unique().tolist()
-    ALL_ARTICLE = articles['article_id'].unique().tolist()
-    customer_ids = dict(list(enumerate(ALL_CUSTOMER)))
-    article_ids = dict(list(enumerate(ALL_ARTICLE)))
-    customer_map = {u: uidx for uidx, u in customer_ids.items()}
-    article_map = {i: iidx for iidx, i in article_ids.items()}
+
+    with open("dataset/customer_ids.pickle",'rb') as file:
+        customer_map = pickle.load(file)
+    
+    with open("dataset/article_ids.pickle",'rb') as file:
+        article_map = pickle.load(file)
+
     customers['customer_ids_int'] = customers['customer_id'].map(customer_map)
     articles['article_ids_int'] = articles['article_id'].map(article_map)
 
@@ -256,10 +259,10 @@ def calculate_cv():
 
 if __name__ == '__main__':
     df_train_set = pd.read_parquet('result/rank_train.parquet')
-    print(df_train_set.head())
+    print(len(df_train_set.customer_id.unique()))
     # train_lgb_rank(df_train_set)
     
     # train_lgb(df_train_set)
-    # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet')
+    df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet')
     # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet') 
-    # submit(df)
+    submit(df)
