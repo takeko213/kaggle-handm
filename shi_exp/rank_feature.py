@@ -6,6 +6,7 @@ from cuml.experimental.preprocessing import MinMaxScaler
 from sklearn.preprocessing import LabelEncoder
 import os
 from utils import Logger, reduce_mem
+import sys
 
 # init log
 log_file = 'my_log.log'
@@ -189,17 +190,22 @@ def make_customer_tran_features(history):
 
 
 if __name__ == '__main__':
-    INPUT_DIR = 'dataset/'
+    args = sys.argv
 
+    offline=True
+
+    INPUT_DIR = 'dataset/'
     transactions = pd.read_parquet(
         INPUT_DIR + 'transactions_train.parquet')
 
-    # transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
-    transactions = transactions[transactions.week < transactions.week.max()]
+    if offline:
+        transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+    else:
+        transactions = transactions[transactions.week < transactions.week.max()]
 
     customers = pd.read_parquet(INPUT_DIR + 'customers.parquet')
     articles = reduce_mem(pd.read_parquet(INPUT_DIR + 'articles.parquet'))
-    df_recall = reduce_mem(pd.read_csv('result/recall.csv'))
+    df_recall = reduce_mem(pd.read_parquet('result/recall.parquet'))
     
     # use cudf to calculate
     transactions = cudf.DataFrame.from_pandas(transactions)

@@ -42,10 +42,10 @@ if __name__ == '__main__':
     article_map = {i: iidx for iidx, i in article_ids.items()}
 
     with open("dataset/customer_ids.pickle", 'wb') as handle:
-        pickle.dump(customer_ids, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(customer_map, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     with open("dataset/article_ids.pickle", 'wb') as handle:
-        pickle.dump(article_ids, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(article_map, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     log.info('start prepare transactions')
 

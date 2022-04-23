@@ -59,14 +59,14 @@ def itemcf_sim(df):
 
 if __name__ == '__main__':
     offline=True
-
+    start_week = 12 
     INPUT_DIR = 'dataset/'
     transactions = pd.read_parquet(INPUT_DIR + 'transactions_train.parquet')
     if offline:
-        transactions = transactions[(transactions.week >= transactions.week.max() - 12)  & (transactions.week < transactions.week.max())]
+        transactions = transactions[(transactions.week >= transactions.week.max() - start_week)  & (transactions.week < transactions.week.max())]
         print(len(transactions[['customer_id']].drop_duplicates()))
     else:
-        transactions = transactions[transactions.week >= transactions.week.max() - 12]
+        transactions = transactions[transactions.week >= transactions.week.max() - start_week]
 
     transactions = transactions.sort_values('week')
     print(transactions.head())

@@ -5,6 +5,7 @@ import warnings
 from collections import defaultdict
 from itertools import permutations
 import gc
+import sys
 
 import pandas as pd
 from tqdm import tqdm
@@ -80,9 +81,9 @@ if __name__ == '__main__':
     recall_path = 'result'
 
     # recall methods
-    recall_methods = ['itemcf', 'hot']
+    recall_methods = ['itemcf', 'hot_and_cold']
     # recall weight
-    weights = {'itemcf': 1, 'hot': 0.1}
+    weights = {'itemcf': 1, 'hot_and_cold': 0.01}
     recall_list = []
     # recall_dict = {}
     for recall_method in recall_methods:
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     recall_score = recall_final[['customer_id', 'article_id', 'sim_score']].groupby(['customer_id', 'article_id'
                                                                                      ])['sim_score'].sum().reset_index()
     # drop duplicates
-    recall_final = recall_final[['customer_id', 'article_id', 'label'
+    recall_final = recall_final[['customer_id', 'article_id'
                                  ]].drop_duplicates(['customer_id', 'article_id'])
     # add label
     recall_final = recall_final.merge(recall_score, how='left')
@@ -126,11 +127,9 @@ if __name__ == '__main__':
 
     df = recall_final['customer_id'].value_counts().reset_index()
     df.columns = ['customer_id', 'cnt']
-    log.debug(f"per user recll number: {df['cnt'].mean()}")
+    log.debug(f"per user recall number: {df['cnt'].mean()}")
 
-    log.debug(
-        f"label distribute: {recall_final[recall_final['label'].notnull()]['label'].value_counts()}"
-    )
+    # log.debug(
+    #     f"label distribute: {recall_final[recall_final['label'].notnull()]['label'].value_counts()}"
+    # )
     recall_final.to_parquet('result/recall.parquet', index=False)
-
-    # recall_final.to_csv('result/recall.csv', index=False)

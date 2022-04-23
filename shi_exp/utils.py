@@ -12,7 +12,7 @@ def apk(actual, predicted, k=10):
 
     score = 0.0
     num_hits = 0.0
-
+    
     for i, p in enumerate(predicted):
         if p in actual and p not in predicted[:i]:
             num_hits += 1.0
@@ -20,18 +20,19 @@ def apk(actual, predicted, k=10):
     return score / min(len(actual), k)
 
 
-def metrics(train_df, val_df, topk=12):
+# def metrics(train_df, val_df, topk=12):
 
-    train_unq = train_df.groupby('customer_id')[
-        'article_id'].apply(list).reset_index()
-    train_unq.columns = ['customer_id', 'valid_pred']
+def metrics(merged, topk=12):
+    # train_unq = train_df.groupby('customer_id')[
+    #     'article_id'].apply(list).reset_index()
+    # train_unq.columns = ['customer_id', 'valid_pred']
 
-    valid_unq = val_df.groupby('customer_id')[
-        'article_id'].apply(list).reset_index()
-    valid_unq.columns = ['customer_id', 'valid_true']
-
-    merged = valid_unq.merge(train_unq, how='left').fillna([''])
-    merged = merged[merged['valid_true'] != ''].reset_index(drop=True)
+    # valid_unq = val_df.groupby('customer_id')[
+    #     'article_id'].apply(list).reset_index()
+    # valid_unq.columns = ['customer_id', 'valid_true']
+    
+    # merged = valid_unq.merge(train_unq, how='left').fillna([''])
+    # merged = merged[merged['valid_true'] != ''].reset_index(drop=True)
 
     score = np.mean([apk(a, p, topk) for a, p in zip(
         merged['valid_true'], merged['valid_pred'])])
