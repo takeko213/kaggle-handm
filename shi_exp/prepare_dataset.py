@@ -48,7 +48,6 @@ if __name__ == '__main__':
         pickle.dump(article_ids, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     log.info('start prepare transactions')
-    # transactions = pd.read_csv(INPUT_DIR + 'transactions_train.csv', dtype={"article_id": "str"})
 
     transactions.t_dat = pd.to_datetime(transactions.t_dat, format='%Y-%m-%d')
     transactions['week'] = 104 - (transactions.t_dat.max() - transactions.t_dat).dt.days // 7
@@ -86,6 +85,9 @@ if __name__ == '__main__':
 
     # fill age with mean
     customers['age'] = customers['age'].fillna(int(customers['age'].mean()))
+
+    # replace None to NONE
+    customers['fashion_news_frequency'] = customers['fashion_news_frequency'].str.replace('None','NONE')
 
     label_encode_column = [
         'FN', 'Active', 'fashion_news_frequency', 'club_member_status', 'postal_code']
