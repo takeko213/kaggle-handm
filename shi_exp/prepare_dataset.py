@@ -115,3 +115,18 @@ if __name__ == '__main__':
     df_val = df_val[['customer_id', 'article_id']].drop_duplicates().reset_index(drop=True)
     df_val.to_parquet('dataset/df_val.parquet')
     print('create val df over')
+
+    for sample_repr, sample in [("01", 0.001), ("1", 0.01), ("5", 0.05)]:
+        print(sample)
+        customers_sample = customers.sample(int(customers.shape[0]*sample), replace=False)
+        customers_sample_ids = set(customers_sample["customer_id"])
+        transactions_sample = transactions[transactions["customer_id"].isin(customers_sample_ids)]
+        articles_sample_ids = set(transactions_sample["article_id"])
+        articles_sample = articles[articles["article_id"].isin(articles_sample_ids)]
+        customers_sample.to_parquet(f"dataset/customers_sample{sample_repr}.parquet", index=False)
+        transactions_sample.to_parquet(f"dataset/transactions_train_sample{sample_repr}.parquet", index=False)
+        articles_sample.to_parquet(f"dataset/articles_train_sample{sample_repr}.parquet", index=False)
+
+        df_val = transactions[transactions.week == transactions.week.max()]
+        df_val = df_val[['customer_id', 'article_id']].drop_duplicates().reset_index(drop=True)
+        df_val.to_parquet(f'dataset/df_val{sample_repr}.parquet')
