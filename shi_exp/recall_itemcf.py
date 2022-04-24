@@ -32,7 +32,7 @@ top_k = 500
 
 
 @multitasking.task
-def recall(item_sim, user_item_dict, hot_list, worker_id):
+def recall(item_sim, part_user_items_dict, hot_list, worker_id):
     """
     :param df_test_part:
     :param item_sim:
@@ -41,50 +41,53 @@ def recall(item_sim, user_item_dict, hot_list, worker_id):
     :return:
     """
     data_list = []
+    print(len(part_user_items_dict))
+    for user_id in tqdm(part_user_items_dict):
+    #     rank = {}
 
-    for user_id in tqdm(user_item_dict):
-        rank = {}
+    #     interacted_items = part_user_items_dict[user_id]
+    #     # final 2 action find sim item
+    #     # interacted_items = interacted_items[::-1][:10]
 
-        interacted_items = user_item_dict[user_id]
-        # final 2 action find sim item
-        # interacted_items = interacted_items[::-1][:10]
+    #     # for loc, item in enumerate(interacted_items):
+    #     #     # at least 50
+    #     #     for relate_item, wij in  item_sim[item][:200]:
+    #     #     #for relate_item, wij in sorted(item_sim[item].items(), key=lambda d: d[1], reverse=True)[0:50]:
+    #     #         # if relate_item not in interacted_items:
+    #     #         # relate_item delete is not good
+    #     #         if True: 
+    #     #             rank.setdefault(relate_item, 0)
+    #     #             # time decay
+    #     #             rank[relate_item] += wij * (0.9 ** loc)
 
-        for loc, item in enumerate(interacted_items):
-            # at least 50
-            for relate_item, wij in  item_sim[item][:200]:
-            #for relate_item, wij in sorted(item_sim[item].items(), key=lambda d: d[1], reverse=True)[0:50]:
-                # if relate_item not in interacted_items:
-                # relate_item delete is not good
-                if True: 
-                    rank.setdefault(relate_item, 0)
-                    # time decay
-                    rank[relate_item] += wij * (0.9 ** loc)
+    #     # # get top k
+    #     # sim_items = sorted(
+    #     #     rank.items(), key=lambda d: d[1], reverse=True)[:top_k]
 
-        # get top k
-        sim_items = sorted(
-            rank.items(), key=lambda d: d[1], reverse=True)[:top_k]
-
-        item_ids = [item[0] for item in sim_items]
-        item_sim_scores = [item[1] for item in sim_items]
-
+    #     # item_ids = [item[0] for item in sim_items]
+    #     # item_sim_scores = [item[1] for item in sim_items]
+        
+        sim_items = part_user_items_dict[user_id]
+        item_ids = sim_items
+        # item_sim_scores = []
         if len(sim_items) < top_k:
             for i, item in enumerate(hot_list):
                 if item in sim_items:
                     continue
                 item_ids.append(item)
-                item_sim_scores.append(- i - 100)
+                # item_sim_scores.append(- i - 100)
             if len(sim_items) == top_k:
                 break
 
 
         df_part = pd.DataFrame()
         df_part['article_id'] = item_ids
-        df_part['sim_score'] = item_sim_scores
+        # df_part['sim_score'] = item_sim_scores
         df_part['customer_id'] = user_id
 
         # reduce memory
         df_part['article_id'] = df_part['article_id'].astype(np.int32)
-        df_part['sim_score'] = df_part['sim_score'].astype(np.float32)
+        # df_part['sim_score'] = df_part['sim_score'].astype(np.float32)
         df_part['customer_id'] = df_part['customer_id'].astype(np.int32)
         df_part = df_part.drop_duplicates() 
         data_list.append(df_part)
@@ -99,10 +102,10 @@ def recall(item_sim, user_item_dict, hot_list, worker_id):
 
 def create_recall(item_sim_dict, user_items_dict, df_test, hot_list, offline=True):
 
-    # df_test = df_test[['customer_id', 'article_id']].drop_duplicates(keep='last')
+    df_test = df_test[['customer_id', 'article_id']].drop_duplicates(keep='last')
     all_users = df_test['customer_id'].unique()
     n_split = max_threads
-    total = len(all_users)
+    total = len(user_items_dict)
     n_len = total // n_split
 
     # save temp result
@@ -114,8 +117,6 @@ def create_recall(item_sim_dict, user_items_dict, df_test, hot_list, offline=Tru
         part_users = all_users[i:i + n_len]
         part_user_items_dict = dict(itertools.islice(
             user_items_dict.items(), i, i+n_len))
-        # df_temp = df_test[df_test['customer_id'].isin(part_users)]
-
         recall(item_sim_dict, part_user_items_dict,hot_list, i)
 
     multitasking.wait_for_tasks()
@@ -164,7 +165,7 @@ def get_customer_frequent(history, n=12):
     results = pd.DataFrame()
 
     # '全期間', '直近1week', '直近1month', '直近1year
-    for sw in [0 , 1, 4, 52]:
+    for sw in [104 , 1, 4, 52]:
         # sw start week
         customer_agg = history[history.week >=history.week.max() - sw].groupby(['customer_id', 'article_id'])['t_dat'].count().reset_index()
         customer_agg = customer_agg.rename(columns={'t_dat':'cnt'})
@@ -224,7 +225,7 @@ def get_popular_article(history, n=12, sw=None):
     result = pd.DataFrame()
     hot_items_lists = [] 
     # '全期間', '直近1week', '直近1month', '直近1year
-    for sw in [0 , 1, 4, 52]:
+    for sw in [104, 1, 4, 52]:
         hot_items_list = history[history.week >=history.week.max() - sw]['article_id'].value_counts().keys()[:n].to_list()
         hot_items_lists = hot_items_lists + hot_items_list
     result['article_id'] = hot_items_lists 
@@ -262,8 +263,9 @@ if __name__ == '__main__':
     user_items_dict = dict(
         zip(user_items_df['customer_id'], user_items_df['article_id']))
 
-    with open('result/itemcf_i2i_sim.pkl', 'rb') as f:
-        item_sim_dict = pickle.load(f)
-
-    # print('start itemcf recall')
+    # print(user_items_dict)
+    # with open('result/itemcf_i2i_sim.pkl', 'rb') as f:
+    #     item_sim_dict = pickle.load(f)
+    item_sim_dict = []
+    print('start itemcf recall')
     create_recall(item_sim_dict, user_items_dict, transactions, hot_list, offline)

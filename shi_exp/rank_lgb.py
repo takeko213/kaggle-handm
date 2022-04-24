@@ -8,7 +8,8 @@ from sklearn.model_selection import GroupKFold
 import pathlib
 import cudf
 import numpy as np
-from utils import Logger, evaluate, reduce_mem
+from xgboost import train
+from utils import Logger, reduce_mem
 import signal
 import multitasking
 import gc
@@ -264,9 +265,13 @@ def calculate_cv():
 if __name__ == '__main__':
     df_train_set = pd.read_parquet('result/rank_train.parquet')
     print(len(df_train_set.customer_id.unique()))
+    df_val = pd.read_parquet('dataset/df_val.parquet')
+    print(len(df_val.customer_id.unique()))  # 68984
+    df_train_set=df_train_set[df_train_set.customer_id.isin(df_val.customer_id.unique())]
     # train_lgb_rank(df_train_set)
+    train_lgb(df_train_set)
 
     # train_lgb(df_train_set)
-    df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet')
+    # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet')
     # df = pd.read_parquet('result/trn_lgb_ranker_feats.parquet') 
-    submit(df)
+    # submit(df)

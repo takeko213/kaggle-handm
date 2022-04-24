@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 
-def apk(actual, predicted, k=10):
+def apk(actual, predicted, k=12):
     if len(predicted) > k:
         predicted = predicted[:k]
 
@@ -18,9 +18,6 @@ def apk(actual, predicted, k=10):
             num_hits += 1.0
             score += num_hits / (i + 1.0)
     return score / min(len(actual), k)
-
-
-# def metrics(train_df, val_df, topk=12):
 
 def metrics(merged, topk=12):
     # train_unq = train_df.groupby('customer_id')[
@@ -39,70 +36,20 @@ def metrics(merged, topk=12):
     print(score)
     return score
 
+# https://www.kaggle.com/code/baekseungyun/evaluate-how-well-you-generate-the-candidate
+# https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations/discussion/314458
+def _evaluate_recall(actual, predict):
+    act_tot = len(actual)
+    pre_tot = len(predict)
+    correct = actual.merge(predict, on=['customer_id', 'article_id'], how='inner').shape[0]
 
-def evaluate(df, total):
-    hitrate_5 = 0
-    mrr_5 = 0
+    print(f"[+] Recall = {correct/act_tot*100:.1f}% ({correct}/{act_tot})")
+    print(f"[+] Multiple Factor = {pre_tot//correct} ({pre_tot}/{correct})")
 
-    hitrate_10 = 0
-    mrr_10 = 0
-
-    hitrate_20 = 0
-    mrr_20 = 0
-
-    hitrate_40 = 0
-    mrr_40 = 0
-
-    hitrate_50 = 0
-    mrr_50 = 0
-
-    gg = df.groupby(['customer_id'])
-
-    for _, g in tqdm(gg):
-        try:
-            item_id = g[g['label'] == 1]['article_id'].values[0]
-        except Exception as e:
-            continue
-
-        predictions = g['article_id'].values.tolist()
-
-        rank = 0
-        while predictions[rank] != item_id:
-            rank += 1
-
-        if rank < 5:
-            mrr_5 += 1.0 / (rank + 1)
-            hitrate_5 += 1
-
-        if rank < 10:
-            mrr_10 += 1.0 / (rank + 1)
-            hitrate_10 += 1
-
-        if rank < 20:
-            mrr_20 += 1.0 / (rank + 1)
-            hitrate_20 += 1
-
-        if rank < 40:
-            mrr_40 += 1.0 / (rank + 1)
-            hitrate_40 += 1
-
-        if rank < 50:
-            mrr_50 += 1.0 / (rank + 1)
-            hitrate_50 += 1
-
-    hitrate_5 /= total
-
-    hitrate_10 /= total
-
-    hitrate_20 /= total
-
-    hitrate_40 /= total
-    mrr_40 /= total
-
-    hitrate_50 /= total
-
-    return hitrate_5, hitrate_10, hitrate_20, hitrate_40, hitrate_50
-
+def evaluate_recall(recall_df, df_val, topk=50):
+    val_customers = df_val['customer_id'].unique()
+    recall_df = recall_df[recall_df.customer_id.isin(val_customers)]
+    _evaluate_recall(df_val, recall_df) 
 
 def reduce_mem(df):
     starttime = time.time()

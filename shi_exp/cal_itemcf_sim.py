@@ -65,7 +65,7 @@ def itemcf_sim(df):
 if __name__ == '__main__':
     offline = True
     test = False 
-    start_week = 104 
+    start_week = 52 
     INPUT_DIR = 'dataset/'
     if test:
         transactions = pd.read_parquet(INPUT_DIR + 'transactions_train_sample01.parquet')
