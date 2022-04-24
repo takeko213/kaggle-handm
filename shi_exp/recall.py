@@ -113,7 +113,7 @@ if __name__ == '__main__':
     recall_final.sort_values(
         ['customer_id', 'sim_score'], inplace=True, ascending=[True, False])
     # get recall item top 50
-    recall_final = recall_final.groupby('customer_id').head(50)
+    recall_final = recall_final.groupby('customer_id').head(100)
     log.debug(f'recall_final.shape: {recall_final.shape}')
 
     # # evo recall

@@ -1,3 +1,4 @@
+from inspect import trace
 import math
 import os
 import pathlib
@@ -26,11 +27,12 @@ os.makedirs('log', exist_ok=True)
 log = Logger(f'log/{log_file}').logger
 log.info('itemcf recall ')
 
-top_k = 30
+top_k = 500
+
 
 
 @multitasking.task
-def recall(item_sim, user_item_dict, worker_id):
+def recall(item_sim, user_item_dict, hot_list, worker_id):
     """
     :param df_test_part:
     :param item_sim:
@@ -49,32 +51,42 @@ def recall(item_sim, user_item_dict, worker_id):
 
         for loc, item in enumerate(interacted_items):
             # at least 50
-            for relate_item, wij in sorted(item_sim[item].items(), key=lambda d: d[1], reverse=True)[0:50]:
-                # relate_item delete
-                if relate_item not in interacted_items:
+            for relate_item, wij in  item_sim[item][:200]:
+            #for relate_item, wij in sorted(item_sim[item].items(), key=lambda d: d[1], reverse=True)[0:50]:
+                # if relate_item not in interacted_items:
+                # relate_item delete is not good
+                if True: 
                     rank.setdefault(relate_item, 0)
                     # time decay
-                    rank[relate_item] += wij * (0.7 ** loc)
+                    rank[relate_item] += wij * (0.9 ** loc)
 
         # get top k
         sim_items = sorted(
             rank.items(), key=lambda d: d[1], reverse=True)[:top_k]
+
         item_ids = [item[0] for item in sim_items]
         item_sim_scores = [item[1] for item in sim_items]
+
+        if len(sim_items) < top_k:
+            for i, item in enumerate(hot_list):
+                if item in sim_items:
+                    continue
+                item_ids.append(item)
+                item_sim_scores.append(- i - 100)
+            if len(sim_items) == top_k:
+                break
+
 
         df_part = pd.DataFrame()
         df_part['article_id'] = item_ids
         df_part['sim_score'] = item_sim_scores
         df_part['customer_id'] = user_id
-        # df_part['label'] = 0
-        # df_part.loc[df_part['article_id'] == item_id, 'label'] = 1
 
         # reduce memory
         df_part['article_id'] = df_part['article_id'].astype(np.int32)
         df_part['sim_score'] = df_part['sim_score'].astype(np.float32)
         df_part['customer_id'] = df_part['customer_id'].astype(np.int32)
-        # df_part['label'] = df_part['label'].astype(np.int8)
-
+        df_part = df_part.drop_duplicates() 
         data_list.append(df_part)
 
     df_part_data = pd.concat(data_list, sort=False)
@@ -85,7 +97,7 @@ def recall(item_sim, user_item_dict, worker_id):
     print(str(worker_id) + 'recall over')
 
 
-def create_recall(item_sim_dict, user_items_dict, df_test, offline=True):
+def create_recall(item_sim_dict, user_items_dict, df_test, hot_list, offline=True):
 
     # df_test = df_test[['customer_id', 'article_id']].drop_duplicates(keep='last')
     all_users = df_test['customer_id'].unique()
@@ -104,7 +116,7 @@ def create_recall(item_sim_dict, user_items_dict, df_test, offline=True):
             user_items_dict.items(), i, i+n_len))
         # df_temp = df_test[df_test['customer_id'].isin(part_users)]
 
-        recall(item_sim_dict, part_user_items_dict, i)
+        recall(item_sim_dict, part_user_items_dict,hot_list, i)
 
     multitasking.wait_for_tasks()
     log.info('merge task')
@@ -116,8 +128,8 @@ def create_recall(item_sim_dict, user_items_dict, df_test, offline=True):
             df_data = df_data.append(df_temp)
 
     # sort
-    df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[
-                                  True, False]).reset_index(drop=True)
+    # df_data = df_data.sort_values(['customer_id', 'sim_score'], ascending=[
+    #                               True, False]).reset_index(drop=True)
 
     # evo recall
     log.info(f'evo recall')
@@ -133,13 +145,98 @@ def create_recall(item_sim_dict, user_items_dict, df_test, offline=True):
     #     )
 
     # save recall result
+    df_data = df_data.drop_duplicates()
     df_data.to_parquet('result/recall_itemcf.parquet', index=False)
+
+#copy from t88
+def get_customer_frequent(history, n=12):
+    """顧客ごと商品の購入数をカウントし上位の商品を抽出
+
+    Args:
+        history (dataframe): 集計対象の実績データ
+        n (int): レコメンド対象とする数
+        timedelta (dateutil.relativedelta): 指定された場合、実績データの終端からtimedelta分のデータを取得する
+
+    Returns:
+        dataframe: 抽出結果
+    """
+        
+    results = pd.DataFrame()
+
+    # '全期間', '直近1week', '直近1month', '直近1year
+    for sw in [0 , 1, 4, 52]:
+        # sw start week
+        customer_agg = history[history.week >=history.week.max() - sw].groupby(['customer_id', 'article_id'])['t_dat'].count().reset_index()
+        customer_agg = customer_agg.rename(columns={'t_dat':'cnt'})
+        customer_agg = customer_agg.sort_values(['customer_id', 'cnt'], ascending=False)
+        result = customer_agg.groupby('customer_id').head(n)
+        result = result[['customer_id', 'article_id']]
+        results = results.append(result) 
+
+    results = results.drop_duplicates(keep='first')
+    return results
+
+
+#copy from t88
+def get_customer_type_frequent(history, n=12, timedelta=None):
+    if timedelta is not None:
+        st_date = history['t_dat'].max() - timedelta
+        history = history[history['t_dat']>=st_date].copy()
+
+    result = history[['customer_id', 'customer_type']].drop_duplicates().copy()
+    agg = history.groupby(['customer_type', 'article_id'])['t_dat'].count().reset_index()
+    agg = agg.rename(columns={'t_dat':'cnt'})
+    agg = agg.sort_values(['customer_type', 'cnt'], ascending=False)
+    agg = agg.groupby('customer_type').head(n)
+    result = result.merge(agg[['customer_type', 'article_id']], on='customer_type', how='left')
+    return result[['customer_id', 'article_id']]
+
+#copy from t88
+def get_article_type_frequent(history, col, n=12, timedelta=None):
+    if timedelta is not None:
+        st_date = history['t_dat'].max() - timedelta
+        history = history[history['t_dat']>=st_date].copy()
+
+    result = history.groupby(['customer_id', col])['t_dat'].count().reset_index()
+    result = result.rename(columns={'t_dat':'cnt'})
+    result = result.sort_values(['customer_id', 'cnt'], ascending=False)
+    result = result.groupby(['customer_id']).head(1)[['customer_id', col]]
+
+    agg = history.groupby([col, 'article_id'])['t_dat'].count().reset_index()
+    agg = agg.rename(columns={'t_dat':'cnt'})
+    agg = agg.sort_values([col, 'cnt'], ascending=False)
+    agg = agg.groupby(col).head(n)
+    result = result.merge(agg[[col, 'article_id']], on=col, how='left')
+    return result[['customer_id', 'article_id']]
+
+#copy from t88
+def get_popular_article(history, n=12, sw=None):
+    """全体の購入数をカウントし上位の商品を抽出
+
+    Args:
+        history (dataframe): 集計対象の実績データ
+        n (int): レコメンド対象とする数
+        timedelta (dateutil.relativedelta): 指定された場合、実績データの終端からtimedelta分のデータを取得する
+
+    Returns:
+        list: 抽出結果
+    """
+    result = pd.DataFrame()
+    hot_items_lists = [] 
+    # '全期間', '直近1week', '直近1month', '直近1year
+    for sw in [0 , 1, 4, 52]:
+        hot_items_list = history[history.week >=history.week.max() - sw]['article_id'].value_counts().keys()[:n].to_list()
+        hot_items_lists = hot_items_lists + hot_items_list
+    result['article_id'] = hot_items_lists 
+    result = result.drop_duplicates(keep='first')
+    return hot_items_lists
 
 
 if __name__ == '__main__':
     offline = True
-    test = True
-    start_week =12
+    test = False
+    start_week =104
+
     INPUT_DIR = 'dataset/'
     if test:
         transactions = pd.read_parquet(INPUT_DIR + 'transactions_train_sample01.parquet')
@@ -153,11 +250,12 @@ if __name__ == '__main__':
         transactions = transactions[transactions.week >=
                                     transactions.week.max() - start_week]
     
+    hot_list = get_popular_article(transactions) 
+    # print(hot_list)
 
-    user_items_df = transactions.groupby(['customer_id', 'article_id'])['t_dat'].count().reset_index()
-    user_items_df = user_items_df.rename(columns={'t_dat':'cnt'})
-    user_items_df = user_items_df.sort_values(['customer_id', 'cnt'], ascending=False)
-    user_items_df = user_items_df.groupby('customer_id').head(10)
+
+    user_items_df = get_customer_frequent(transactions)
+    # print(user_feq)
 
     user_items_df = user_items_df.groupby(
         'customer_id')['article_id'].apply(list).reset_index()
@@ -167,5 +265,5 @@ if __name__ == '__main__':
     with open('result/itemcf_i2i_sim.pkl', 'rb') as f:
         item_sim_dict = pickle.load(f)
 
-    print('start itemcf recall')
-    create_recall(item_sim_dict, user_items_dict, transactions, offline)
+    # print('start itemcf recall')
+    create_recall(item_sim_dict, user_items_dict, transactions, hot_list, offline)

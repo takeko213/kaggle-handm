@@ -43,7 +43,8 @@ def itemcf_sim(df):
             for loc2, (j, j_week) in enumerate(item_time_list):
                 if (i == j):
                     continue
-                time_diff_weight = np.exp(0.7 ** np.abs(i_week - j_week))
+                time_diff_weight = np.exp(0.9 ** np.abs(i_week - j_week))
+                time_diff_weight = 1
                 i2i_sim[i].setdefault(j, 0)
                 i2i_sim[i][j] += time_diff_weight / math.log(len(item_time_list) + 1)
 
@@ -52,7 +53,10 @@ def itemcf_sim(df):
     for i, related_items in i2i_sim.items():
         for j, wij in related_items.items():
             i2i_sim_[i][j] = wij / math.sqrt(item_cnt[i] * item_cnt[j])
-
+    
+    for item in i2i_sim_:
+        i2i_sim_[item] = sorted(i2i_sim_[item].items(), key=lambda d: d[1], reverse=True)[:50] 
+        
     pickle.dump(i2i_sim_, open(save_path + 'itemcf_i2i_sim.pkl', 'wb'))
 
     return i2i_sim_
@@ -60,8 +64,8 @@ def itemcf_sim(df):
 
 if __name__ == '__main__':
     offline = True
-    test = True
-    start_week = 12
+    test = False 
+    start_week = 104 
     INPUT_DIR = 'dataset/'
     if test:
         transactions = pd.read_parquet(INPUT_DIR + 'transactions_train_sample01.parquet')
@@ -75,6 +79,7 @@ if __name__ == '__main__':
         transactions = transactions[transactions.week >= transactions.week.max() - start_week]
 
     transactions = transactions.sort_values('week')
+
     print(transactions.head())
 
     u2u_sim = itemcf_sim(transactions)
