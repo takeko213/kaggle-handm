@@ -10,14 +10,6 @@ python rank_feature.py
 python rank_lgb
 ```
 
-```python
-user_multi_recall_dict =  {'itemcf_sim_itemcf_recall': {},
-                           'embedding_sim_item_recall': {},
-                           'youtubednn_recall': {},
-                           'youtubednn_usercf_recall': {}, 
-                           'cold_start_recall': {}}
-```
-
 
 # from t88 git exp22
 ```
