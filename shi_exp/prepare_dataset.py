@@ -19,7 +19,7 @@ if __name__ == '__main__':
     transactions = pd.read_csv(INPUT_DIR + 'transactions_train.csv', dtype={"article_id": "str"})
     articles = pd.read_csv(INPUT_DIR + 'articles.csv', dtype={"article_id": "str"})
     customers = pd.read_csv(INPUT_DIR + 'customers.csv')
-
+    
     ALL_CUSTOMER = customers['customer_id'].unique().tolist()
     ALL_ARTICLE = articles['article_id'].unique().tolist()
     ALL_CUSTOMER.sort()
@@ -50,18 +50,18 @@ if __name__ == '__main__':
     log.info('start prepare articles')
     articles = pd.read_csv(INPUT_DIR + 'articles.csv', dtype={"article_id": "str"})
     articles.article_id = articles['article_id'].map(article_map)
-    label_encode_column = ['product_type_name', 'product_group_name', 'graphical_appearance_name',
-                           'colour_group_name', 'perceived_colour_value_name', 'perceived_colour_master_name',
-                           'department_name',
-                           'index_name', 'index_group_name', 'section_name', 'garment_group_name']
+    # label_encode_column = ['product_type_name', 'product_group_name', 'graphical_appearance_name',
+    #                        'colour_group_name', 'perceived_colour_value_name', 'perceived_colour_master_name',
+    #                        'department_name',
+    #                        'index_name', 'index_group_name', 'section_name', 'garment_group_name']
 
-    for c in label_encode_column:
-        articles[c] = articles[c].astype(str)
-        le = LabelEncoder()
-        articles[c] = le.fit_transform(articles[c].fillna(''))
+    # for c in label_encode_column:
+    #     articles[c] = articles[c].astype(str)
+    #     le = LabelEncoder()
+    #     articles[c] = le.fit_transform(articles[c].fillna(''))
 
-    label_encode_column.insert(0, 'article_id')
-    articles = articles[label_encode_column]
+    # label_encode_column.insert(0, 'article_id')
+    # articles = articles[label_encode_column]
     articles = reduce_mem(articles)
     log.info(articles.dtypes)
     log.info('over prepare articles')
@@ -70,25 +70,29 @@ if __name__ == '__main__':
     customers = pd.read_csv(INPUT_DIR + 'customers.csv')
     customers.customer_id = customers['customer_id'].map(customer_map)
 
-    # fill age with mean
-    customers['age'] = customers['age'].fillna(int(customers['age'].mean()))
+    # # fill age with mean
+    # customers['age'] = customers['age'].fillna(int(customers['age'].mean()))
+    # customers['age'] = df[col].astype(np.int32)
+
+    # customers['age10'] = str((customers['age'] // 10) * 10)
 
     # replace None to NONE
     customers['fashion_news_frequency'] = customers['fashion_news_frequency'].str.replace('None', 'NONE')
 
-    label_encode_column = [
-        'FN', 'Active', 'fashion_news_frequency', 'club_member_status', 'postal_code']
-    for c in label_encode_column:
-        customers[c] = customers[c].astype(str)
-        le = LabelEncoder()
-        customers[c] = le.fit_transform(customers[c].fillna(''))
+    # label_encode_column = [
+    #     'FN', 'Active', 'fashion_news_frequency', 'club_member_status', 'postal_code']
+    # for c in label_encode_column:
+    #     customers[c] = customers[c].astype(str)
+    #     le = LabelEncoder()
+    #     customers[c] = le.fit_transform(customers[c].fillna(''))
 
     #  null count
     # FN 895050
     # Active 907576
-    select_column = ['customer_id', 'club_member_status',
-                     'fashion_news_frequency', 'age', 'postal_code']
-    customers = customers[select_column]
+    # select_column = ['customer_id', 'club_member_status',
+    #                  'fashion_news_frequency', 'age', 'postal_code']
+
+    # customers = customers[select_column]
     customers = reduce_mem(customers)
     log.info(customers.dtypes)
     log.info('over prepare customers')
