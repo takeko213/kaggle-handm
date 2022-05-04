@@ -9,8 +9,15 @@ from collections import defaultdict
 import math
 from utils import reduce_mem
 import warnings
+import multitasking
+import signal
 
 warnings.filterwarnings('ignore')
+
+max_threads = multitasking.config['CPU_CORES']
+multitasking.set_max_threads(max_threads)
+multitasking.set_engine('process')
+signal.signal(signal.SIGINT, multitasking.killall)
 
 uid = 'customer_id'
 iid = 'article_id'
@@ -89,7 +96,7 @@ def get_pop_item(df, df_items, n=8):
 
     popular_items_group = popular_items_group.sort_values(
         [iid, index_name_col, product_group_name_col, color_col, 'pop_factor'], ascending=False)
-    popular_items_group = popular_items_group.groupby([iid, index_name_col, color_col, product_group_name_col]).head(20)
+    popular_items_group = popular_items_group.groupby([iid, index_name_col, color_col, product_group_name_col]).head(10)
     popular_items_group = popular_items_group[[iid, index_name_col, color_col, product_group_name_col, 'pop_factor']]
     return popular_items_group
 
@@ -144,9 +151,30 @@ def get_prodcut_name_rate_by_uid(df, df_items):
     result = result[[uid, product_group_name_col, 'product_name_rate']]
     return result
 
+@multitasking.task
+def recall_hot(part_customer_ids, df_rate, worker_id):
+
+    recall_hot = []
+    for customer_id in tqdm(part_customer_ids):
+        df_rate_ = df_rate[df_rate[uid] == customer_id]
+        df_rate_ = df_rate_.merge(pop_items, on=[color_col, index_name_col, product_group_name_col], how='left')
+        df_rate_ = df_rate_.dropna()
+        df_rate_['rate_strategy'] = df_rate_['index_rate'] * df_rate_['color_rate'] * df_rate_['product_name_rate'] * \
+                                    df_rate_['pop_factor']
+
+        df_rate_ = df_rate_.sort_values(['rate_strategy'], ascending=False).head(50)
+        df_rate_ = df_rate_[[uid, iid, 'pop_factor', 'rate_strategy']]
+        df_rate_ = reduce_mem(df_rate_)
+        recall_hot.append(df_rate_)
+
+    # df_part_data = pd.DataFrame()
+    # df_part_data = pd.concat(recall_hot, sort=False)
+    # os.makedirs('result/hot_tmp', exist_ok=True)
+    # df_part_data.to_parquet(f'result/hot_tmp/{worker_id}recall_hot.parquet')
+
 
 if __name__ == '__main__':
-    test = True
+    test = False
     offline = True
     if test:
         percentage = '1'
@@ -161,8 +189,10 @@ if __name__ == '__main__':
 
         items = pd.read_parquet('dataset/articles.parquet')
         users = pd.read_parquet('dataset/customers.parquet')
+        df_val = pd.read_parquet('dataset/df_val.parquet')
+        print(len(df_val[uid].unique()))
 
-    if True:
+    if False:
         pop_items = get_pop_item(transactions, items)
         pop_items = reduce_mem(pop_items)
         pop_items.to_parquet('result/pop_items.parquet')
@@ -188,18 +218,16 @@ if __name__ == '__main__':
     df_rate = df_rate.merge(prodcut_name_rate_by_uid, on=[uid], how='left')
 
     customer_ids = df_rate[uid].unique()
-    for customer_id in tqdm(customer_ids):
-        df_rate_ = df_rate[df_rate[uid] == customer_id]
-        df_rate_ = df_rate_.merge(pop_items, on=[color_col, index_name_col, product_group_name_col], how='left')
-        df_rate_ = df_rate_.dropna()
-        df_rate_['rate_strategy'] = df_rate_['index_rate'] * df_rate_['color_rate'] * df_rate_['product_name_rate'] * \
-                                    df_rate_['pop_factor']
 
-        df_rate_ = df_rate_.sort_values(['rate_strategy'], ascending=False).head(50)
-        df_rate_ = df_rate_[[uid, iid, 'pop_factor', 'rate_strategy']]
-        # print(df_rate_)
-        # print(len(df_rate_))
-        # break
+    n_split = max_threads
+    total = len(customer_ids)
+    n_len = total // n_split
+
+    for i in range(0, total, n_len):
+        part_users = customer_ids[i:i + n_len]
+        recall_hot(part_users, df_rate, i)
+
+    multitasking.wait_for_tasks()
 
     # for _customer_id in customer_ids:
     #     print(_customer_id)
