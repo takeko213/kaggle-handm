@@ -140,14 +140,14 @@ def get_prodcut_name_rate_by_uid(df, df_items):
     tmp_total = tmp.groupby([uid])[time_col].agg('count').reset_index()
     tmp_total.columns = [uid, 'total_cnt']
     result = tmp_product_name.merge(tmp_total, on=uid, how='left')
-    result['prodcut_name_rate'] = result['cnt'] / result['total_cnt']
-    result = result[[uid, product_group_name_col, 'prodcut_name_rate']]
+    result['product_name_rate'] = result['cnt'] / result['total_cnt']
+    result = result[[uid, product_group_name_col, 'product_name_rate']]
     return result
 
 
 if __name__ == '__main__':
     test = True
-
+    offline = True
     if test:
         percentage = '1'
         transactions = pd.read_parquet('dataset/transactions_train_sample1.parquet')
@@ -156,6 +156,9 @@ if __name__ == '__main__':
         df_val = pd.read_parquet('dataset/df_val1.parquet')
     else:
         transactions = pd.read_parquet('dataset/transactions_train.parquet')
+        if offline:
+            transactions = transactions[transactions.week < transactions.week.max()]
+
         items = pd.read_parquet('dataset/articles.parquet')
         users = pd.read_parquet('dataset/customers.parquet')
 
@@ -184,14 +187,19 @@ if __name__ == '__main__':
     df_rate = color_rate_by_uid.merge(index_group_rate_by_uid, on=[uid], how='left')
     df_rate = df_rate.merge(prodcut_name_rate_by_uid, on=[uid], how='left')
 
-    # customer_ids = df_val[uid].unique()
-    # df_rate = df_rate[df_rate[uid].isin(customer_ids)]
     customer_ids = df_rate[uid].unique()
-    print(len(customer_ids))
     for customer_id in tqdm(customer_ids):
         df_rate_ = df_rate[df_rate[uid] == customer_id]
         df_rate_ = df_rate_.merge(pop_items, on=[color_col, index_name_col, product_group_name_col], how='left')
         df_rate_ = df_rate_.dropna()
+        df_rate_['rate_strategy'] = df_rate_['index_rate'] * df_rate_['color_rate'] * df_rate_['product_name_rate'] * \
+                                    df_rate_['pop_factor']
+
+        df_rate_ = df_rate_.sort_values(['rate_strategy'], ascending=False).head(50)
+        df_rate_ = df_rate_[[uid, iid, 'pop_factor', 'rate_strategy']]
+        # print(df_rate_)
+        # print(len(df_rate_))
+        # break
 
     # for _customer_id in customer_ids:
     #     print(_customer_id)
