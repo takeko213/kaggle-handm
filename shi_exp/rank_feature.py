@@ -1,3 +1,4 @@
+import re
 import types
 import builtins
 import pandas as pd
@@ -596,8 +597,8 @@ if __name__ == '__main__':
     offline = True
     test = False
 
-    if True:
-        INPUT_DIR = '../../../h-and-m-personalized-fashion-recommendations/'
+    if False:
+        INPUT_DIR = '../../h-and-m-personalized-fashion-recommendations/'
         articles = pd.read_csv(INPUT_DIR + 'articles.csv', dtype='object')
         customers = pd.read_csv(INPUT_DIR + 'customers.csv')
         transactions = pd.read_csv(INPUT_DIR + 'transactions_train.csv', dtype={'article_id':'str'}, parse_dates=['t_dat'])
@@ -667,29 +668,29 @@ if __name__ == '__main__':
 
 
     Ns = {}
-    Ns['cf_a'] = 12
-    Ns['ctf_a'] = 12
-    Ns['atfd_a'] = 12
-    Ns['atfp_a'] = 12
-    Ns['pa_a'] = 12
+    Ns['cf_a'] = 20 
+    Ns['ctf_a'] = 20
+    Ns['atfd_a'] = 20
+    Ns['atfp_a'] = 20
+    Ns['pa_a'] = 20
 
-    Ns['cf_w'] = 12
-    Ns['ctf_w'] = 12
-    Ns['atfd_w'] = 12
-    Ns['atfp_w'] = 12
-    Ns['pa_w'] = 12
+    Ns['cf_w'] = 20
+    Ns['ctf_w'] = 20
+    Ns['atfd_w'] = 20
+    Ns['atfp_w'] = 20
+    Ns['pa_w'] = 20
 
-    Ns['cf_m'] = 12
-    Ns['ctf_m'] = 12
-    Ns['atfd_m'] = 12
-    Ns['atfp_m'] = 12
-    Ns['pa_m'] = 12
+    Ns['cf_m'] = 20
+    Ns['ctf_m'] = 20
+    Ns['atfd_m'] = 20
+    Ns['atfp_m'] = 20
+    Ns['pa_m'] = 20
 
-    Ns['cf_y'] = 12
-    Ns['ctf_y'] = 12
-    Ns['atfd_y'] = 12
-    Ns['atfp_y'] = 12
-    Ns['pa_y'] = 12
+    Ns['cf_y'] = 20
+    Ns['ctf_y'] = 20
+    Ns['atfd_y'] = 20
+    Ns['atfp_y'] = 20
+    Ns['pa_y'] = 20
     RUN_US = True
 
     transactions = pd.read_parquet('dataset/transactions_train.parquet')
@@ -715,6 +716,7 @@ if __name__ == '__main__':
             first_week_sales_pred_tmp = None
             target_id = target_tran['customer_id'].unique().tolist()
             recom = get_reccomend(target_id, history_tran, Ns, first_week_sales_pred_tmp)
+            recom.to_parquet('result/recall_t88.parquet')
             ml_train_tmp = add_labels(recom, target_tran)
 
             # # under sampling
@@ -742,13 +744,13 @@ if __name__ == '__main__':
             # ml_valid = add_features(ml_valid, history_tran, articles, customers, first_week_sales_pred_tmp)
             # ml_valid.to_csv('result/rank_val.parquet', index=False)
 
-if False:
+if True:
 
 
     # create predcit file
     all_target_id = customers['customer_id'].tolist()
     # first_week_sales_pred_tmp = first_week_sales_pred[first_week_sales_pred['1st_week_sales_dat'] >= '2020/09/23']
-    BATCH_SIZE = int(1e5)
+    BATCH_SIZE = int(7e4)
 
     # メモリのケアのためバッチで推論を回す
     batchs = [all_target_id[i:i+BATCH_SIZE] for i in range(0, len(all_target_id), BATCH_SIZE)]
@@ -783,9 +785,10 @@ if False:
                 ml_test.columns))
 
             test_pred = np.zeros(len(ml_test))
-            with open(f'model/lgb_classification{fold}.pkl', 'rb') as f:
+            #with open(f'model/lgb_classification{fold}.pkl', 'rb') as f:
+            with open(f'model/lgb{fold}.pkl', 'rb') as f:
                 model = pickle.load(f)
-            score_df['pred_score'] = model.predict(ml_test[features], num_iteration=model.best_iteration)
+            score_df['pred_score'] = model.predict(ml_test[features], num_iteration=model.best_iteration_)
             
             preds.append(score_df)
         
