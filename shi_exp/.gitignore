@@ -1,0 +1,8 @@
+*.csv
+*.pickle
+*.pkl
+*.parquet
+*.log
+*.npy
+../h-and-m-personalized-fashion-recommendations/
+.idea/
